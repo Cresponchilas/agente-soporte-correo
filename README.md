@@ -57,17 +57,19 @@ cp .env.example .env               # llena OPENAI_API_KEY y LANGSMITH_API_KEY
 ## Cómo usarlo
 
 ```bash
-pytest                             # 11 tests, sin llaves y sin gastar tokens (LLM falso)
+pytest                             # 12 tests, sin llaves y sin gastar tokens (LLM falso)
 python scripts/demo.py             # procesa los 8 correos de ejemplo y te pide aprobar en consola
 python scripts/demo.py 1           # solo el correo #1 (cobro duplicado, pide revisión)
-langgraph dev                      # abre LangGraph Studio con el grafo
+langgraph dev --allow-blocking     # abre LangGraph Studio con el grafo
 python evals/run_evals.py          # crea el dataset en LangSmith y corre el experimento
 ```
 
 ### En LangGraph Studio
 
-1. Corre `langgraph dev` y abre el enlace de Studio que aparece en la terminal.
-2. En *Input* pega un correo, por ejemplo:
+1. Corre `langgraph dev --allow-blocking` y abre el enlace de Studio que aparece en la terminal.
+   (`--allow-blocking` evita que el servidor de desarrollo bloquee el tracer de LangSmith, que hace
+   llamadas síncronas al iniciar; sin él, las corridas de Studio no aparecen en LangSmith.)
+2. En *Input* llena `remitente`, `asunto` y `cuerpo` (el grafo declara ese esquema de entrada), por ejemplo:
    ```json
    {"remitente": "laura.gomez@logisticaandina.com", "asunto": "Cobro doble", "cuerpo": "Me cobraron dos veces la suscripción este mes."}
    ```
@@ -96,6 +98,8 @@ En cuatro PRs apilados; cada uno parte del anterior y deja los tests en verde:
 2. `pr/02-rag-y-contexto`: RAG, historial y tickets en paralelo.
 3. `pr/03-revision-humana`: `interrupt()` y `Command`.
 4. `pr/04-evals-y-demo`: evals en LangSmith, la demo y esta documentación.
+5. `pr/05-ajustes-studio-y-tests`: correcciones tras probarlo en Windows (numpy faltante,
+   esquema de entrada para Studio, prompt que usa los datos concretos de la documentación).
 
 ## Siguientes pasos
 
