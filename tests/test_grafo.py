@@ -54,7 +54,7 @@ def test_urgencia_alta_pausa_y_aprobar_envia(grafo, clasificacion_falsa):
     assert "__interrupt__" in resultado
     pausa = resultado["__interrupt__"][0].value
     assert pausa["borrador"] == "Hola, este es un borrador de prueba."
-    assert servicios.BANDEJA_DE_SALIDA == []  # nada se envía antes de aprobar
+    assert len(servicios.BANDEJA_DE_SALIDA) == 0  # nada se envía antes de aprobar
 
     final = grafo.invoke(Command(resume={"accion": "aprobar"}), cfg)
     assert final["decision_humana"] == "aprobado"
@@ -79,7 +79,7 @@ def test_rechazar_no_envia(grafo, clasificacion_falsa):
     final = grafo.invoke(Command(resume={"accion": "rechazar"}), cfg)
     assert final["decision_humana"] == "rechazado"
     assert not final.get("enviado")
-    assert servicios.BANDEJA_DE_SALIDA == []
+    assert len(servicios.BANDEJA_DE_SALIDA) == 0
 
 
 def test_cliente_reincidente_va_a_revision(grafo, clasificacion_falsa):

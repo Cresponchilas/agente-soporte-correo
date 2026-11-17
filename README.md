@@ -57,7 +57,7 @@ cp .env.example .env               # llena OPENAI_API_KEY y LANGSMITH_API_KEY
 ## Cómo usarlo
 
 ```bash
-pytest                             # 12 tests, sin llaves y sin gastar tokens (LLM falso)
+pytest                             # 27 tests (más 1 de Postgres si defines TEST_DATABASE_URL), sin llaves y sin gastar tokens (LLM falso)
 python scripts/demo.py             # procesa los 8 correos de ejemplo y te pide aprobar en consola
 python scripts/demo.py 1           # solo el correo #1 (cobro duplicado, pide revisión)
 langgraph dev --allow-blocking     # abre LangGraph Studio con el grafo
@@ -76,6 +76,31 @@ python evals/run_evals.py          # crea el dataset en LangSmith y corre el exp
 3. Mira cómo corren en paralelo las ramas de contexto y cómo el grafo se detiene en `revision_humana`.
 4. Reanuda con `{"accion": "aprobar"}`, `{"accion": "editar", "texto": "..."}` o `{"accion": "rechazar"}`.
 5. Abre la traza en LangSmith para ver el prompt, los fragmentos recuperados y los tokens de cada paso.
+
+## API (para el dashboard)
+
+`src/soporte/api/` expone el grafo con FastAPI y transmite cada paso como Server-Sent Events:
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| GET | `/salud` | Estado del servidor y tipo de persistencia (postgres o memoria) |
+| GET | `/casos` | Los 8 correos de prueba con su resultado esperado |
+| POST | `/corridas` | Procesa un correo y transmite eventos: `inicio`, `nodo_inicio`, `nodo_fin`, `pausa`, `fin`, `error` |
+| POST | `/corridas/{id}/decision` | Reanuda una corrida pausada con `aprobar`, `editar` o `rechazar` |
+| GET | `/corridas/{id}` | Estado actual de una corrida |
+
+```bash
+pip install -e ".[dev]"
+uvicorn soporte.api.app:app --reload          # http://localhost:8000/docs
+```
+
+Cómo falla de forma controlada:
+
+- **Entradas inválidas:** 422 con el campo y el mensaje (`{"error": ..., "detalles": [...]}`).
+- **Errores a mitad del grafo:** llegan como evento `error` con un mensaje para el usuario; el detalle técnico solo va al log.
+- **Corrida inexistente o que no espera decisión:** 404 o 409.
+- **Abuso o gasto excesivo:** límite por IP y por día, con 429 y `Retry-After`.
+- **Llamadas al modelo:** con timeout y reintentos; sin `DATABASE_URL`, la API usa memoria y lo avisa en el log.
 
 ## Costo
 
@@ -100,9 +125,9 @@ En cuatro PRs apilados; cada uno parte del anterior y deja los tests en verde:
 4. `pr/04-evals-y-demo`: evals en LangSmith, la demo y esta documentación.
 5. `pr/05-ajustes-studio-y-tests`: correcciones tras probarlo en Windows (numpy faltante,
    esquema de entrada para Studio, prompt que usa los datos concretos de la documentación).
+6. `pr/06-api`: API FastAPI con streaming, checkpointer Postgres y límites de uso.
 
 ## Siguientes pasos
 
-- Checkpointer persistente (`SqliteSaver` o `PostgresSaver`) en lugar de memoria.
 - Reintento de la búsqueda cuando falla, con una arista de vuelta a `buscar_documentacion`.
 - Evals online y automatizaciones en LangSmith sobre tráfico real.

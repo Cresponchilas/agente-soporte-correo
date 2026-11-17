@@ -6,11 +6,14 @@ referencias (por ejemplo, el id del ticket): separación de responsabilidades.
 
 import json
 import uuid
+from collections import deque
 from functools import lru_cache
 
 from soporte import config
 
-BANDEJA_DE_SALIDA: list[dict] = []  # para poder inspeccionar en la demo qué se "envió"
+# Para inspeccionar qué se "envió". Con tope: en un servidor que corre días, una
+# lista sin límite crecería sin fin.
+BANDEJA_DE_SALIDA: deque[dict] = deque(maxlen=100)
 
 
 @lru_cache
