@@ -1,5 +1,8 @@
 # Agente de soporte por correo (LangGraph + LangSmith)
 
+> Dashboard en vivo: `web/` (Next.js en Vercel) + API `src/soporte/api` (FastAPI en Render) + Postgres (Neon).
+> Guía paso a paso en [DESPLIEGUE.md](DESPLIEGUE.md).
+
 Atiende los correos de soporte de **Contaflux**, una empresa ficticia de facturación electrónica:
 
 1. **Clasifica** el correo (intención y urgencia) con salida estructurada.
@@ -126,6 +129,7 @@ En cuatro PRs apilados; cada uno parte del anterior y deja los tests en verde:
 5. `pr/05-ajustes-studio-y-tests`: correcciones tras probarlo en Windows (numpy faltante,
    esquema de entrada para Studio, prompt que usa los datos concretos de la documentación).
 6. `pr/06-api`: API FastAPI con streaming, checkpointer Postgres y límites de uso.
+7. `pr/07-dashboard`: dashboard en Next.js con panel de tránsito en vivo y casos de prueba.
 
 ## Siguientes pasos
 
