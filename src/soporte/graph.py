@@ -1,6 +1,16 @@
-"""Arma el grafo (versión 1: flujo lineal).
+"""Arma el grafo.
 
-START -> recibir_correo -> clasificar -> redactar_respuesta -> enviar_respuesta -> END
+             START
+               |
+         recibir_correo
+               |
+           clasificar
+        /      |       \\          <- arista condicional que devuelve una lista: ramas en paralelo
+  buscar_doc  historial  crear_ticket (solo si bug o urgencia crítica)
+        \\      |       /
+       redactar_respuesta
+               |
+       enviar_respuesta --> END
 """
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -15,12 +25,21 @@ def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
 
     builder.add_node("recibir_correo", nodes.recibir_correo)
     builder.add_node("clasificar", nodes.clasificar)
+    builder.add_node("buscar_documentacion", nodes.buscar_documentacion)
+    builder.add_node("consultar_historial", nodes.consultar_historial)
+    builder.add_node("crear_ticket", nodes.crear_ticket)
     builder.add_node("redactar_respuesta", nodes.redactar_respuesta)
     builder.add_node("enviar_respuesta", nodes.enviar_respuesta)
 
     builder.add_edge(START, "recibir_correo")
     builder.add_edge("recibir_correo", "clasificar")
-    builder.add_edge("clasificar", "redactar_respuesta")
+    builder.add_conditional_edges("clasificar", nodes.rutas_tras_clasificar, nodes.RAMAS_DE_CONTEXTO)
+
+    # Cada rama apunta a redactar. Como todas terminan en el mismo superstep,
+    # redactar corre UNA vez, ya con la documentación, el historial y el ticket.
+    for rama in nodes.RAMAS_DE_CONTEXTO:
+        builder.add_edge(rama, "redactar_respuesta")
+
     builder.add_edge("redactar_respuesta", "enviar_respuesta")
     builder.add_edge("enviar_respuesta", END)
 

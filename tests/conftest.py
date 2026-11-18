@@ -1,9 +1,10 @@
-"""Fixtures: reemplazan el LLM para que los tests no gasten tokens
+"""Fixtures: reemplazan el LLM y los embeddings para que los tests no gasten tokens
 ni necesiten llaves de API."""
 
 import pytest
+from langchain_core.embeddings import DeterministicFakeEmbedding
 
-from soporte import llm
+from soporte import kb, llm
 from soporte.state import Clasificacion
 
 
@@ -22,3 +23,5 @@ def clasificacion_falsa(monkeypatch):
 @pytest.fixture(autouse=True)
 def sin_llamadas_reales(monkeypatch):
     monkeypatch.setattr(llm, "redactar_con_llm", lambda prompt: "Hola, este es un borrador de prueba.")
+    indice_falso = kb.construir_indice(DeterministicFakeEmbedding(size=64))
+    monkeypatch.setattr(kb, "indice", lambda: indice_falso)

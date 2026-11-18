@@ -1,0 +1,21 @@
+{
+  "ana.ruiz@panaderialaespiga.co": {
+    "nombre": "Ana Ruiz",
+    "empresa": "Panadería La Espiga",
+    "plan": "Básico",
+    "contactos_previos": 0
+  },
+  "carlos.mejia@ferreteriamejia.com": {
+    "nombre": "Carlos Mejía",
+    "empresa": "Ferretería Mejía",
+    "plan": "Pyme",
+    "contactos_previos": 3,
+    "nota": "Escribió 3 veces este mes por el mismo error de la API."
+  },
+  "laura.gomez@logisticaandina.com": {
+    "nombre": "Laura Gómez",
+    "empresa": "Logística Andina",
+    "plan": "Empresa",
+    "contactos_previos": 1
+  }
+}
