@@ -123,7 +123,8 @@ export function vistaAcciones({ corrida, apiLista }) {
 export function vistaResultado({ corrida, caso, destinatario }) {
   if (!corrida || corrida.fase === "sin_iniciar") return "";
   const estado = estadoAcumulado(corrida);
-  const { clasificacion, fragmentos, ticket_id, historial_cliente, borrador } = estado;
+  const { clasificacion, ticket_id, historial_cliente, borrador } = estado;
+  const fragmentos = estado.contexto?.length ? estado.contexto : estado.fragmentos;
   const corriendo = corrida.fase === "corriendo";
   const pendiente = `<p class="resultado__pendiente">${corriendo ? "En proceso…" : "Sin datos."}</p>`;
   const mostrarRevision = (corrida.fase === "pausada" || corrida.fase === "error") && corrida.pausa && corrida.threadId;
@@ -149,10 +150,15 @@ export function vistaResultado({ corrida, caso, destinatario }) {
       <h3>Contexto que reunió</h3>
       ${
         fragmentos || historial_cliente
-          ? `<p class="resultado__linea">${ticket_id ? `Ticket creado: ${esc(ticket_id)}.` : "Sin ticket."} ${esc(historialEnTexto(historial_cliente))}</p>
+          ? `<p class="resultado__linea">${ticket_id ? `Caso abierto: ${esc(ticket_id)}.` : "Sin caso abierto."} ${esc(historialEnTexto(historial_cliente))}</p>
+             ${vistaBusquedaExacta(estado.busqueda_exacta)}
              ${fragmentos ? vistaFuentes(fragmentos) : ""}`
           : pendiente
       }
+    </section>
+    <section class="resultado__seccion">
+      <h3>Verificación contra el catálogo</h3>
+      ${estado.verificacion ? vistaVerificacion(estado.verificacion) : pendiente}
     </section>
     ${
       borrador && corrida.fase !== "pausada"
@@ -165,7 +171,9 @@ function vistaRevision(solicitud) {
   const ticket = solicitud.ticket_id ? `, ticket ${esc(solicitud.ticket_id)}` : "";
   return `<section class="revision" aria-labelledby="titulo-revision">
     <h3 id="titulo-revision">Necesita tu aprobación</h3>
-    <p class="revision__motivo">El agente se detuvo antes de enviar: urgencia ${esc(solicitud.urgencia)}, intención ${esc(solicitud.intencion)}${ticket}. Puedes ajustar el texto antes de decidir.</p>
+    <p class="revision__motivo">El agente se detuvo antes de enviar (intención ${esc(solicitud.intencion)}, urgencia ${esc(solicitud.urgencia)}${ticket}) por esto:</p>
+    ${solicitud.motivos?.length ? `<ul class="revision__motivos">${solicitud.motivos.map((m) => `<li>${esc(m)}</li>`).join("")}</ul>` : ""}
+    <p class="revision__motivo">Puedes ajustar el texto antes de decidir.</p>
     <label for="texto-revision" class="sr-only">Respuesta que se enviará</label>
     <textarea id="texto-revision" rows="9" data-original="${esc(solicitud.borrador)}">${esc(solicitud.borrador)}</textarea>
     <div class="revision__acciones">
@@ -196,10 +204,42 @@ function vistaComparacion(caso, resumen) {
   </table>`;
 }
 
+const ORIGENES = { exacta: "búsqueda exacta", vectorial: "búsqueda vectorial", ambas: "ambas búsquedas" };
+
+const ESTADOS_AFIRMACION = {
+  respaldado: { marca: "✓", texto: "en lo que vio el modelo" },
+  fuera_de_contexto: { marca: "≈", texto: "existe en el catálogo, pero el modelo no lo vio" },
+  no_encontrado: { marca: "✗", texto: "no aparece en el catálogo" },
+};
+
+function vistaBusquedaExacta(busqueda) {
+  if (!busqueda || busqueda.codigos.length === 0) return "";
+  const partes = busqueda.codigos.map((codigo) =>
+    busqueda.inexistentes.includes(codigo) ? `<strong class="texto-alerta">${esc(codigo)} no existe</strong>` : `${esc(codigo)} encontrado`,
+  );
+  return `<p class="resultado__linea">Búsqueda exacta de los códigos del correo: ${partes.join(", ")}.</p>`;
+}
+
+function vistaVerificacion(verificacion) {
+  const veredicto = verificacion.aprobada
+    ? `<p class="aviso aviso--ok">Todo número de pieza y dato del borrador existe en el catálogo.</p>`
+    : `<div class="aviso aviso--error"><strong>No se envía sin revisión.</strong><ul>${verificacion.motivos.map((m) => `<li>${esc(m)}</li>`).join("")}</ul></div>`;
+  const filas = verificacion.afirmaciones
+    .map((a) => {
+      const estado = ESTADOS_AFIRMACION[a.estado];
+      return `<tr data-estado="${a.estado}"><td><span aria-hidden="true">${estado.marca}</span> ${esc(a.texto)}</td><td>${estado.texto}</td><td>${a.fuente ? esc(a.fuente.replace("#", ", ")) : "—"}</td></tr>`;
+    })
+    .join("");
+  const tabla = verificacion.afirmaciones.length
+    ? `<table class="verificacion"><thead><tr><th scope="col">Lo que dice el borrador</th><th scope="col">Resultado</th><th scope="col">Dónde está</th></tr></thead><tbody>${filas}</tbody></table>`
+    : `<p class="resultado__pendiente">El borrador no menciona números de pieza ni datos con unidades.</p>`;
+  return veredicto + tabla;
+}
+
 function vistaFuentes(fragmentos) {
   const items = fragmentos
     .map(
-      (f) => `<li><details><summary>${f.fuente === "error" ? "La búsqueda falló" : esc(f.fuente.replace("#", ", sección "))}</summary><p>${esc(f.texto)}</p></details></li>`,
+      (f) => `<li><details><summary>${f.fuente === "error" ? "La búsqueda falló" : esc(f.fuente.replace("#", ", sección "))}${f.origen ? ` <span class="origen" data-origen="${esc(f.origen)}">${ORIGENES[f.origen] ?? esc(f.origen)}</span>` : ""}</summary><p>${esc(f.texto)}</p></details></li>`,
     )
     .join("");
   return `<ul class="fuentes">${items}</ul>`;
@@ -308,7 +348,24 @@ function resumirActualizacion(nodo, a) {
     case "consultar_historial":
       return contactosPrevios(a.historial_cliente?.contactos_previos ?? 0);
     case "crear_ticket":
-      return `Ticket ${a.ticket_id}`;
+      return `Caso ${a.ticket_id}`;
+    case "busqueda_exacta": {
+      const b = a.busqueda_exacta;
+      if (!b || b.codigos.length === 0) return "El correo no menciona números de pieza";
+      const encontrados = Object.keys(b.encontrados);
+      return [
+        encontrados.length ? `Encontrados: ${encontrados.join(", ")}` : "",
+        b.inexistentes.length ? `No existen: ${b.inexistentes.join(", ")}` : "",
+      ].filter(Boolean).join(". ");
+    }
+    case "verificar_respuesta": {
+      const v = a.verificacion;
+      if (!v) return undefined;
+      const sinRespaldo = v.afirmaciones.filter((x) => x.estado === "no_encontrado").length;
+      return v.aprobada
+        ? `${v.afirmaciones.length} datos comprobados en el catálogo`
+        : `${sinRespaldo} dato(s) sin respaldo; va a revisión`;
+    }
     case "redactar_respuesta":
       return typeof a.borrador === "string" ? `Borrador de ${a.borrador.split(/\s+/).length} palabras` : undefined;
     case "revision_humana":

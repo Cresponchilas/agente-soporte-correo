@@ -38,6 +38,7 @@ class Fragmento(TypedDict):
 
     fuente: str  # archivo y sección, para citar
     texto: str
+    origen: NotRequired[str]  # vectorial, exacta o ambas (cuando se combinan las búsquedas)
 
 
 class EntradaCorreo(TypedDict):
@@ -59,12 +60,17 @@ class EstadoCorreo(TypedDict, total=False):
 
     # Intermedios
     clasificacion: ClasificacionDict
-    fragmentos: list[Fragmento]
+    fragmentos: list[Fragmento]  # búsqueda vectorial (RAG)
+    busqueda_exacta: dict  # números de pieza del correo buscados literalmente en el catálogo
+    fragmentos_exactos: list[Fragmento]
+    contexto: list[Fragmento]  # lo que de verdad vio el modelo: las dos búsquedas combinadas
     historial_cliente: dict
     ticket_id: str | None
 
     # Salida
     borrador: str
+    verificacion: dict  # resultado de verificar el borrador contra el catálogo
+    motivos_revision: list[str]  # por qué pasa (o no) por revisión humana
     decision_humana: str | None  # aprobado, editado o rechazado
     enviado: bool
 

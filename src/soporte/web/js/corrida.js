@@ -66,6 +66,7 @@ export function corridaDesdeResumen(threadId, resumen, remitente) {
           urgencia: resumen.clasificacion?.urgencia ?? "",
           intencion: resumen.clasificacion?.intencion ?? "",
           ticket_id: resumen.ticket_id,
+          motivos: resumen.motivos_revision ?? [],
         }
       : undefined,
   };

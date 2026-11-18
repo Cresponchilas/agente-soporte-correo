@@ -754,7 +754,7 @@ textarea {
 
 .bitacora__evento {
   display: grid;
-  grid-template-columns: 58px 1fr;
+  grid-template-columns: 68px 1fr;
   gap: var(--paso);
   padding: 7px 0;
   border-bottom: 1px solid var(--linea);
@@ -842,4 +842,69 @@ textarea {
   .marca--corriendo {
     animation: none;
   }
+}
+
+/* ---------- Búsqueda exacta y verificación ---------- */
+
+.origen {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  border: 1px solid var(--linea);
+  color: var(--tinta-suave);
+}
+
+.origen[data-origen="exacta"],
+.origen[data-origen="ambas"] {
+  border-color: var(--azul-correo);
+  color: var(--azul-correo);
+}
+
+.texto-alerta {
+  color: var(--rojo-correo);
+}
+
+.aviso ul,
+.revision__motivos {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.revision__motivos {
+  margin-bottom: calc(var(--paso) * 1.5);
+}
+
+.verificacion {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: calc(var(--paso) * 1.5);
+  font-size: 0.9rem;
+}
+
+.verificacion th,
+.verificacion td {
+  text-align: left;
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--linea);
+  vertical-align: top;
+}
+
+.verificacion thead th {
+  color: var(--tinta-suave);
+  font-weight: 500;
+  font-size: 0.82rem;
+}
+
+.verificacion tr[data-estado="respaldado"] td:first-child {
+  color: var(--sello);
+}
+
+.verificacion tr[data-estado="fuera_de_contexto"] td:first-child {
+  color: var(--ambar);
+}
+
+.verificacion tr[data-estado="no_encontrado"] td:first-child {
+  color: var(--rojo-correo);
+  font-weight: 500;
 }

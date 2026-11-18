@@ -7,12 +7,12 @@ from typing import Literal
 from langgraph.graph import END
 from langgraph.types import Command, interrupt
 
-from soporte import kb, llm, prompts, servicios
+from soporte import kb, llm, prompts, servicios, verificacion
 from soporte.state import EstadoCorreo, Fragmento
 
 logger = logging.getLogger(__name__)
 
-RAMAS_DE_CONTEXTO = ["buscar_documentacion", "consultar_historial", "crear_ticket"]
+RAMAS_DE_CONTEXTO = ["buscar_documentacion", "busqueda_exacta", "consultar_historial", "crear_ticket"]
 
 
 def recibir_correo(estado: EstadoCorreo) -> dict:
@@ -41,7 +41,7 @@ def rutas_tras_clasificar(estado: EstadoCorreo) -> list[str]:
     Solo se abre un caso (ticket) si es una garantía o la línea del cliente está parada.
     """
     c = estado["clasificacion"]
-    rutas = ["buscar_documentacion", "consultar_historial"]
+    rutas = ["buscar_documentacion", "busqueda_exacta", "consultar_historial"]
     if c["intencion"] == "garantia" or c["urgencia"] == "critica":
         rutas.append("crear_ticket")
     return rutas
@@ -59,6 +59,13 @@ def buscar_documentacion(estado: EstadoCorreo) -> dict:
     return {"fragmentos": fragmentos, "pasos": ["buscar_documentacion"]}
 
 
+def busqueda_exacta(estado: EstadoCorreo) -> dict:
+    """El "grep": busca literalmente en el catálogo cada número de pieza del correo.
+    Corre en paralelo con la búsqueda vectorial y encuentra lo que ella confunde."""
+    resultado, fragmentos = verificacion.busqueda_exacta(f"{estado.get('asunto', '')}\n{estado['cuerpo']}", kb.catalogo())
+    return {"busqueda_exacta": resultado, "fragmentos_exactos": fragmentos, "pasos": ["busqueda_exacta"]}
+
+
 def consultar_historial(estado: EstadoCorreo) -> dict:
     return {"historial_cliente": servicios.historial_de(estado["remitente"]), "pasos": ["consultar_historial"]}
 
@@ -68,18 +75,26 @@ def crear_ticket(estado: EstadoCorreo) -> dict:
     return {"ticket_id": servicios.crear_ticket(c["resumen"], c["urgencia"]), "pasos": ["crear_ticket"]}
 
 
-def necesita_revision(estado: EstadoCorreo) -> bool:
-    """La regla la decide el código, no el LLM: el modelo clasifica, nosotros enrutamos."""
+def motivos_de_negocio(estado: EstadoCorreo) -> list[str]:
+    """Reglas de negocio para pedir revisión humana. Las decide el código, no el LLM:
+    el modelo clasifica, nosotros enrutamos. Lista vacía = no hace falta revisión."""
     c = estado["clasificacion"]
-    reincidente = estado.get("historial_cliente", {}).get("contactos_previos", 0) >= 3
-    return c["urgencia"] in ("alta", "critica") or c["intencion"] == "complejo" or reincidente
+    motivos = []
+    if c["urgencia"] in ("alta", "critica"):
+        motivos.append(f"Urgencia {c['urgencia']}.")
+    if c["intencion"] == "complejo":
+        motivos.append("Caso complejo: reclamo formal o varios temas.")
+    if estado.get("historial_cliente", {}).get("contactos_previos", 0) >= 3:
+        motivos.append("Cliente con 3 o más contactos recientes.")
+    return motivos
 
 
-def redactar_respuesta(estado: EstadoCorreo) -> Command[Literal["revision_humana", "enviar_respuesta"]]:
+def redactar_respuesta(estado: EstadoCorreo) -> dict:
     c = estado["clasificacion"]
     historial = estado.get("historial_cliente", {})
-    fragmentos = estado.get("fragmentos", [])
-    documentacion = "\n\n".join(f"[{f['fuente']}]\n{f['texto']}" for f in fragmentos) or "Sin documentación."
+    # El modelo ve las dos búsquedas combinadas; la exacta primero porque es segura.
+    contexto = verificacion.combinar_contexto(estado.get("fragmentos", []), estado.get("fragmentos_exactos", []))
+    documentacion = "\n\n".join(f"[{f['fuente']}]\n{f['texto']}" for f in contexto) or "Sin documentación."
 
     prompt = prompts.REDACTAR.format(
         nombre=historial.get("nombre", "cliente"),
@@ -91,12 +106,25 @@ def redactar_respuesta(estado: EstadoCorreo) -> Command[Literal["revision_humana
         cuerpo=estado["cuerpo"],
         documentacion=documentacion,
     )
-    borrador = llm.redactar_con_llm(prompt)
+    return {"borrador": llm.redactar_con_llm(prompt), "contexto": contexto, "pasos": ["redactar_respuesta"]}
 
+
+def verificar_respuesta(estado: EstadoCorreo) -> Command[Literal["revision_humana", "enviar_respuesta"]]:
+    """Último control antes de enviar, sin LLM: cada número de pieza y dato del borrador
+    tiene que existir literalmente en el catálogo. Si no, va a revisión humana."""
+    resultado = verificacion.verificar(
+        estado["borrador"],
+        vistos=estado.get("contexto", []),
+        catalogo=kb.catalogo(),
+        codigos_inexistentes=estado.get("busqueda_exacta", {}).get("inexistentes", []),
+    )
+    motivos = resultado["motivos"] + motivos_de_negocio(estado)
     # Command = actualizar el estado y elegir el siguiente nodo en el mismo return.
     # El tipo Command[Literal[...]] permite a LangGraph dibujar las dos salidas.
-    siguiente = "revision_humana" if necesita_revision(estado) else "enviar_respuesta"
-    return Command(update={"borrador": borrador, "pasos": ["redactar_respuesta"]}, goto=siguiente)
+    return Command(
+        update={"verificacion": resultado, "motivos_revision": motivos, "pasos": ["verificar_respuesta"]},
+        goto="revision_humana" if motivos else "enviar_respuesta",
+    )
 
 
 def revision_humana(estado: EstadoCorreo) -> Command[Literal["enviar_respuesta", "__end__"]]:
@@ -112,6 +140,7 @@ def revision_humana(estado: EstadoCorreo) -> Command[Literal["enviar_respuesta",
             "urgencia": c["urgencia"],
             "intencion": c["intencion"],
             "ticket_id": estado.get("ticket_id"),
+            "motivos": estado.get("motivos_revision", []),
             "instrucciones": 'Responde {"accion": "aprobar"} | {"accion": "editar", "texto": "..."} | {"accion": "rechazar"}',
         }
     )

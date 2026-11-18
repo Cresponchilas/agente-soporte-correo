@@ -48,7 +48,7 @@ def construir_indice(embeddings: Embeddings, carpeta: Path = config.CARPETA_KB) 
 
 @lru_cache
 def indice() -> InMemoryVectorStore:
-    # Se construye una sola vez por proceso: los embeddings de ~18 secciones
+    # Se construye una sola vez por proceso: los embeddings de ~22 secciones
     # cuestan una fracción de centavo.
     return construir_indice(config.embeddings())
 
@@ -56,3 +56,9 @@ def indice() -> InMemoryVectorStore:
 def buscar(consulta: str, k: int = 3) -> list[Fragmento]:
     resultados = indice().similarity_search(consulta, k=k)
     return [Fragmento(fuente=d.metadata["fuente"], texto=d.page_content) for d in resultados]
+
+
+@lru_cache
+def catalogo() -> list[Fragmento]:
+    """Todas las secciones como texto plano, para la búsqueda exacta (sin embeddings)."""
+    return [Fragmento(fuente=d.metadata["fuente"], texto=d.page_content) for d in cargar_documentos()]
