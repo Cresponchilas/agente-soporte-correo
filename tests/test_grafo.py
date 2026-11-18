@@ -10,7 +10,7 @@ from langgraph.types import Command
 from soporte import servicios
 from soporte.graph import construir_grafo
 
-CORREO = {"remitente": " Ana.Ruiz@panaderialaespiga.co ", "asunto": "Duda", "cuerpo": "¿Cómo descargo mis facturas?"}
+CORREO = {"remitente": " Ingenieria@IntegracionesNorte.co ", "asunto": "Duda", "cuerpo": "¿Qué alimentación tiene el SI-M18-08P?"}
 
 
 @pytest.fixture
@@ -24,19 +24,19 @@ def config():
 
 
 def test_pregunta_simple_se_envia_sin_revision(grafo, clasificacion_falsa):
-    clasificacion_falsa(intencion="pregunta", urgencia="baja")
+    clasificacion_falsa(intencion="especificacion", urgencia="baja")
     resultado = grafo.invoke(CORREO, config())
 
     assert resultado["enviado"] is True
     assert "__interrupt__" not in resultado
-    assert resultado["remitente"] == "ana.ruiz@panaderialaespiga.co"  # normalizado
+    assert resultado["remitente"] == "ingenieria@integracionesnorte.co"  # normalizado
     assert "crear_ticket" not in resultado["pasos"]
     assert "revision_humana" not in resultado["pasos"]
     assert len(servicios.BANDEJA_DE_SALIDA) == 1
 
 
 def test_ramas_de_contexto_corren_y_redactar_corre_una_vez(grafo, clasificacion_falsa):
-    clasificacion_falsa(intencion="bug", urgencia="media")
+    clasificacion_falsa(intencion="garantia", urgencia="media")
     resultado = grafo.invoke(CORREO, config())
 
     pasos = resultado["pasos"]
@@ -47,7 +47,7 @@ def test_ramas_de_contexto_corren_y_redactar_corre_una_vez(grafo, clasificacion_
 
 
 def test_urgencia_alta_pausa_y_aprobar_envia(grafo, clasificacion_falsa):
-    clasificacion_falsa(intencion="facturacion", urgencia="alta")
+    clasificacion_falsa(intencion="cotizacion", urgencia="alta")
     cfg = config()
     resultado = grafo.invoke(CORREO, cfg)
 
@@ -72,7 +72,7 @@ def test_editar_cambia_el_texto_enviado(grafo, clasificacion_falsa):
 
 
 def test_rechazar_no_envia(grafo, clasificacion_falsa):
-    clasificacion_falsa(intencion="facturacion", urgencia="critica")
+    clasificacion_falsa(intencion="cotizacion", urgencia="critica")
     cfg = config()
     grafo.invoke(CORREO, cfg)
 
@@ -83,8 +83,8 @@ def test_rechazar_no_envia(grafo, clasificacion_falsa):
 
 
 def test_cliente_reincidente_va_a_revision(grafo, clasificacion_falsa):
-    clasificacion_falsa(intencion="pregunta", urgencia="baja")
-    correo = {**CORREO, "remitente": "carlos.mejia@ferreteriamejia.com"}  # 3 contactos previos
+    clasificacion_falsa(intencion="especificacion", urgencia="baja")
+    correo = {**CORREO, "remitente": "mantenimiento@textilesandes.com"}  # 3 contactos previos
     resultado = grafo.invoke(correo, config())
     assert "__interrupt__" in resultado
 

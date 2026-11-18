@@ -81,7 +81,7 @@ export function vistaBandeja({ casos, errorCasos, corridas, seleccionado, proban
 export function erroresDeCorreo(correo) {
   // Las mismas reglas que valida la API (esquemas.py), para avisar antes de enviar.
   const errores = {};
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo.remitente.trim())) errores.remitente = "Escribe un correo válido, como ana@empresa.co";
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo.remitente.trim())) errores.remitente = "Escribe un correo válido, como compras@planta.co";
   if (correo.cuerpo.trim().length < 5) errores.cuerpo = "Escribe al menos una frase";
   if (correo.cuerpo.length > 4000) errores.cuerpo = "Máximo 4.000 caracteres";
   if (correo.asunto.length > 200) errores.asunto = "Máximo 200 caracteres";
@@ -105,8 +105,8 @@ export function vistaCorreo({ caso, correoPropio, mostrarErrores }) {
   const errores = mostrarErrores ? erroresDeCorreo(correoPropio) : {};
   return `<h2 class="detalle__asunto">Escribe un correo de cliente</h2>
     <div class="formulario">
-      ${campo("remitente", "De", correoPropio.remitente, errores.remitente, { placeholder: "cliente@empresa.co" })}
-      ${campo("asunto", "Asunto", correoPropio.asunto, errores.asunto, { placeholder: "Ej.: No puedo descargar mis facturas" })}
+      ${campo("remitente", "De", correoPropio.remitente, errores.remitente, { placeholder: "compras@planta.co" })}
+      ${campo("asunto", "Asunto", correoPropio.asunto, errores.asunto, { placeholder: "Ej.: Disponibilidad del SI-M12-04P" })}
       ${campo("cuerpo", "Mensaje", correoPropio.cuerpo, errores.cuerpo, { multilinea: true, placeholder: "Escribe el correo como lo enviaría un cliente" })}
     </div>`;
 }

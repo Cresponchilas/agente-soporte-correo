@@ -1,75 +1,78 @@
 [
   {
     "entrada": {
-      "remitente": "ana.ruiz@panaderialaespiga.co",
-      "asunto": "¿Dónde están mis facturas?",
-      "cuerpo": "Hola, necesito descargar las facturas que emití el mes pasado para mi contador. ¿Dónde las encuentro?"
+      "remitente": "ingenieria@integracionesnorte.co",
+      "asunto": "Datos del SI-M18-08P",
+      "cuerpo": "Buenas tardes. ¿Qué distancia de detección y qué alimentación tiene el sensor SI-M18-08P? Lo vamos a usar en un tablero nuevo."
     },
     "esperado": {
-      "intencion": "pregunta",
+      "intencion": "especificacion",
       "necesita_revision": false
     }
   },
   {
     "entrada": {
-      "remitente": "laura.gomez@logisticaandina.com",
-      "asunto": "URGENTE: cobro doble",
-      "cuerpo": "Me cobraron dos veces la suscripción este mes, aparecen dos cargos iguales el día 5. Necesito que me devuelvan el dinero ya."
+      "remitente": "compras@empacadoraelvalle.com",
+      "asunto": "Cotización válvulas",
+      "cuerpo": "Hola, necesito precio y disponibilidad de 10 válvulas VN-52-14-24D para la próxima semana."
     },
     "esperado": {
-      "intencion": "facturacion",
-      "necesita_revision": true
-    }
-  },
-  {
-    "entrada": {
-      "remitente": "carlos.mejia@ferreteriamejia.com",
-      "asunto": "La API sigue respondiendo 429",
-      "cuerpo": "Otra vez la API nos devuelve error 429 cuando enviamos las facturas del día. Ya les escribí antes. ¿Qué hacemos?"
-    },
-    "esperado": {
-      "intencion": "bug",
-      "necesita_revision": true
-    }
-  },
-  {
-    "entrada": {
-      "remitente": "nuevo.cliente@tiendaverde.co",
-      "asunto": "Contraseña",
-      "cuerpo": "Buenas, olvidé mi contraseña y no puedo entrar. ¿Cómo la recupero?"
-    },
-    "esperado": {
-      "intencion": "pregunta",
+      "intencion": "cotizacion",
       "necesita_revision": false
     }
   },
   {
     "entrada": {
-      "remitente": "gerencia@constructoraalpes.com",
-      "asunto": "No podemos facturar",
-      "cuerpo": "Desde esta mañana ninguna factura sale, todas dan error 500. Tenemos 200 facturas pendientes y estamos parados."
+      "remitente": "ingenieria@integracionesnorte.co",
+      "asunto": "Reemplazo de sensor descontinuado",
+      "cuerpo": "Un cliente tiene un SF-R15-P que ya no se consigue. ¿Con qué referencia lo reemplazo?"
     },
     "esperado": {
-      "intencion": "bug",
-      "necesita_revision": true
-    }
-  },
-  {
-    "entrada": {
-      "remitente": "ana.ruiz@panaderialaespiga.co",
-      "asunto": "Sugerencia",
-      "cuerpo": "Sería genial poder programar el envío automático de facturas recurrentes cada mes. ¿Lo tienen en sus planes?"
-    },
-    "esperado": {
-      "intencion": "funcionalidad",
+      "intencion": "reemplazo",
       "necesita_revision": false
     }
   },
   {
     "entrada": {
-      "remitente": "juridico@importadoraeje.com",
+      "remitente": "compras@empacadoraelvalle.com",
+      "asunto": "Disponibilidad SI-M12-06P",
+      "cuerpo": "¿Tienen en stock el sensor SI-M12-06P? Necesito 4 unidades."
+    },
+    "esperado": {
+      "intencion": "cotizacion",
+      "necesita_revision": true
+    }
+  },
+  {
+    "entrada": {
+      "remitente": "mantenimiento@textilesandes.com",
+      "asunto": "URGENTE: línea parada",
+      "cuerpo": "El sensor SI-M12-04P de la llenadora dejó de detectar y tenemos la línea parada. Necesitamos uno hoy mismo."
+    },
+    "esperado": {
+      "intencion": [
+        "garantia",
+        "cotizacion"
+      ],
+      "necesita_revision": true
+    }
+  },
+  {
+    "entrada": {
+      "remitente": "ingenieria@integracionesnorte.co",
+      "asunto": "Garantía de válvula",
+      "cuerpo": "Compramos una VN-52-18-24D hace 3 meses y se quemó la bobina. ¿Cómo hacemos la garantía?"
+    },
+    "esperado": {
+      "intencion": "garantia",
+      "necesita_revision": false
+    }
+  },
+  {
+    "entrada": {
+      "remitente": "juridico@plasticosdelsur.com",
       "asunto": "Reclamo formal",
-      "cuerpo": "Si no reembolsan el plan anual completo y explican la caída de la semana pasada, iniciaremos acciones legales. También queremos cambiar de plan."
+      "cuerpo": "Si no nos reponen las 30 fuentes que llegaron dañadas y nos explican el retraso del último pedido, iniciaremos acciones legales. También queremos cambiar todo el pedido a otra referencia."
     },
     "esperado": {
       "intencion": "complejo",
@@ -78,16 +81,13 @@
   },
   {
     "entrada": {
-      "remitente": "nuevo.cliente@tiendaverde.co",
-      "asunto": "Cambio de plan",
-      "cuerpo": "Si paso del plan Básico al Pyme a mitad de mes, ¿cuánto me cobran?"
+      "remitente": "compras@empacadoraelvalle.com",
+      "asunto": "Cotización válvula 3/8",
+      "cuerpo": "Por favor cotícenme 6 válvulas VN-52-38-24D, con rosca de 3/8."
     },
     "esperado": {
-      "intencion": [
-        "facturacion",
-        "pregunta"
-      ],
-      "necesita_revision": false
+      "intencion": "cotizacion",
+      "necesita_revision": true
     }
   }
 ]

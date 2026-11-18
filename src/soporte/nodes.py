@@ -38,11 +38,11 @@ def clasificar(estado: EstadoCorreo) -> dict:
 def rutas_tras_clasificar(estado: EstadoCorreo) -> list[str]:
     """Arista condicional que devuelve una LISTA: esas ramas corren en paralelo.
 
-    El ticket solo se crea si hay un bug o la urgencia es crítica.
+    Solo se abre un caso (ticket) si es una garantía o la línea del cliente está parada.
     """
     c = estado["clasificacion"]
     rutas = ["buscar_documentacion", "consultar_historial"]
-    if c["intencion"] == "bug" or c["urgencia"] == "critica":
+    if c["intencion"] == "garantia" or c["urgencia"] == "critica":
         rutas.append("crear_ticket")
     return rutas
 

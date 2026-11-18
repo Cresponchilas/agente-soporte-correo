@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 from typing_extensions import NotRequired, TypedDict
 
-Intencion = Literal["pregunta", "bug", "facturacion", "funcionalidad", "complejo"]
+Intencion = Literal["especificacion", "cotizacion", "reemplazo", "garantia", "complejo"]
 Urgencia = Literal["baja", "media", "alta", "critica"]
 
 
@@ -17,10 +17,10 @@ class Clasificacion(BaseModel):
     """Esquema que el LLM debe devolver (structured output)."""
 
     intencion: Intencion = Field(
-        description="pregunta, bug, facturacion, funcionalidad, o complejo si no encaja en ninguna"
+        description="especificacion, cotizacion, reemplazo, garantia, o complejo si no encaja en ninguna"
     )
     urgencia: Urgencia = Field(description="baja, media, alta o critica")
-    tema: str = Field(description="Tema principal en pocas palabras, útil como consulta de búsqueda")
+    tema: str = Field(description="Tema principal en pocas palabras, útil como consulta de búsqueda; incluye los números de pieza que mencione el cliente")
     resumen: str = Field(description="Resumen del correo en una frase")
 
 
