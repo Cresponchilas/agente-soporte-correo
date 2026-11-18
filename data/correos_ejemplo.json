@@ -1,0 +1,93 @@
+[
+  {
+    "entrada": {
+      "remitente": "ana.ruiz@panaderialaespiga.co",
+      "asunto": "¿Dónde están mis facturas?",
+      "cuerpo": "Hola, necesito descargar las facturas que emití el mes pasado para mi contador. ¿Dónde las encuentro?"
+    },
+    "esperado": {
+      "intencion": "pregunta",
+      "necesita_revision": false
+    }
+  },
+  {
+    "entrada": {
+      "remitente": "laura.gomez@logisticaandina.com",
+      "asunto": "URGENTE: cobro doble",
+      "cuerpo": "Me cobraron dos veces la suscripción este mes, aparecen dos cargos iguales el día 5. Necesito que me devuelvan el dinero ya."
+    },
+    "esperado": {
+      "intencion": "facturacion",
+      "necesita_revision": true
+    }
+  },
+  {
+    "entrada": {
+      "remitente": "carlos.mejia@ferreteriamejia.com",
+      "asunto": "La API sigue respondiendo 429",
+      "cuerpo": "Otra vez la API nos devuelve error 429 cuando enviamos las facturas del día. Ya les escribí antes. ¿Qué hacemos?"
+    },
+    "esperado": {
+      "intencion": "bug",
+      "necesita_revision": true
+    }
+  },
+  {
+    "entrada": {
+      "remitente": "nuevo.cliente@tiendaverde.co",
+      "asunto": "Contraseña",
+      "cuerpo": "Buenas, olvidé mi contraseña y no puedo entrar. ¿Cómo la recupero?"
+    },
+    "esperado": {
+      "intencion": "pregunta",
+      "necesita_revision": false
+    }
+  },
+  {
+    "entrada": {
+      "remitente": "gerencia@constructoraalpes.com",
+      "asunto": "No podemos facturar",
+      "cuerpo": "Desde esta mañana ninguna factura sale, todas dan error 500. Tenemos 200 facturas pendientes y estamos parados."
+    },
+    "esperado": {
+      "intencion": "bug",
+      "necesita_revision": true
+    }
+  },
+  {
+    "entrada": {
+      "remitente": "ana.ruiz@panaderialaespiga.co",
+      "asunto": "Sugerencia",
+      "cuerpo": "Sería genial poder programar el envío automático de facturas recurrentes cada mes. ¿Lo tienen en sus planes?"
+    },
+    "esperado": {
+      "intencion": "funcionalidad",
+      "necesita_revision": false
+    }
+  },
+  {
+    "entrada": {
+      "remitente": "juridico@importadoraeje.com",
+      "asunto": "Reclamo formal",
+      "cuerpo": "Si no reembolsan el plan anual completo y explican la caída de la semana pasada, iniciaremos acciones legales. También queremos cambiar de plan."
+    },
+    "esperado": {
+      "intencion": "complejo",
+      "necesita_revision": true
+    }
+  },
+  {
+    "entrada": {
+      "remitente": "nuevo.cliente@tiendaverde.co",
+      "asunto": "Cambio de plan",
+      "cuerpo": "Si paso del plan Básico al Pyme a mitad de mes, ¿cuánto me cobran?"
+    },
+    "esperado": {
+      "intencion": [
+        "facturacion",
+        "pregunta"
+      ],
+      "necesita_revision": false
+    }
+  }
+]
