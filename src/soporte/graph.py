@@ -18,11 +18,13 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
 from soporte import nodes
-from soporte.state import EstadoCorreo
+from soporte.state import EntradaCorreo, EstadoCorreo
 
 
 def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
-    builder = StateGraph(EstadoCorreo)
+    # input_schema: el grafo solo acepta remitente, asunto y cuerpo como entrada;
+    # el resto del estado lo llenan los nodos.
+    builder = StateGraph(EstadoCorreo, input_schema=EntradaCorreo)
 
     builder.add_node("recibir_correo", nodes.recibir_correo)
     builder.add_node("clasificar", nodes.clasificar)

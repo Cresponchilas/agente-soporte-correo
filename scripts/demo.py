@@ -46,6 +46,7 @@ def main() -> None:
             resultado = grafo.invoke(Command(resume=decision), cfg)
 
         print(f"Pasos: {' -> '.join(resultado['pasos'])}")
+        print(f"Fuentes del RAG: {[f['fuente'] for f in resultado.get('fragmentos', [])]}")
         print(f"Enviado: {resultado.get('enviado', False)} | decisión humana: {resultado.get('decision_humana')}")
         if resultado.get("enviado"):
             print(f"\nRespuesta enviada:\n{resultado['borrador']}")

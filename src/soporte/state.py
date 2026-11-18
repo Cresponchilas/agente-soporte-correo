@@ -7,7 +7,7 @@ import operator
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 Intencion = Literal["pregunta", "bug", "facturacion", "funcionalidad", "complejo"]
 Urgencia = Literal["baja", "media", "alta", "critica"]
@@ -38,6 +38,16 @@ class Fragmento(TypedDict):
 
     fuente: str  # archivo y sección, para citar
     texto: str
+
+
+class EntradaCorreo(TypedDict):
+    """Lo único que el usuario debe enviar al grafo. Studio usa este esquema para
+    mostrar el formulario de entrada."""
+
+    remitente: str
+    asunto: str
+    cuerpo: str
+    correo_id: NotRequired[str]
 
 
 class EstadoCorreo(TypedDict, total=False):

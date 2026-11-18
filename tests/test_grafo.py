@@ -101,3 +101,8 @@ def test_busqueda_fallida_no_tumba_el_grafo(grafo, clasificacion_falsa, monkeypa
     resultado = grafo.invoke(CORREO, config())
     assert resultado["fragmentos"][0]["fuente"] == "error"
     assert resultado["enviado"] is True
+
+
+def test_entrada_incompleta_da_error_claro(grafo):
+    with pytest.raises(ValueError, match="remitente"):
+        grafo.invoke({"asunto": "x", "cuerpo": "hola"}, config())

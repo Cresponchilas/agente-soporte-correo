@@ -1,6 +1,7 @@
 """Los nodos del grafo. Cada nodo es una función: recibe el estado y devuelve
 solo las claves que actualiza (o un Command, si además decide a dónde ir)."""
 
+import logging
 from typing import Literal
 
 from langgraph.graph import END
@@ -9,11 +10,16 @@ from langgraph.types import Command, interrupt
 from soporte import kb, llm, prompts, servicios
 from soporte.state import EstadoCorreo, Fragmento
 
+logger = logging.getLogger(__name__)
+
 RAMAS_DE_CONTEXTO = ["buscar_documentacion", "consultar_historial", "crear_ticket"]
 
 
 def recibir_correo(estado: EstadoCorreo) -> dict:
-    """Normaliza la entrada. En producción aquí se parsearía el correo crudo (MIME)."""
+    """Valida y normaliza la entrada. En producción aquí se parsearía el correo crudo (MIME)."""
+    faltantes = [campo for campo in ("remitente", "cuerpo") if not estado.get(campo)]
+    if faltantes:
+        raise ValueError(f"Faltan campos en la entrada: {', '.join(faltantes)}")
     return {
         "remitente": estado["remitente"].strip().lower(),
         "asunto": estado.get("asunto", "").strip(),
@@ -46,6 +52,7 @@ def buscar_documentacion(estado: EstadoCorreo) -> dict:
     try:
         fragmentos = kb.buscar(f"{c['tema']}. {c['resumen']}")
     except Exception as error:  # noqa: BLE001
+        logger.warning("Falló la búsqueda en la base de conocimiento: %s", error)
         # Un agente largo no debe caerse por una búsqueda fallida: se guarda el
         # error en el estado y el redactor sabrá que no tiene documentación.
         fragmentos = [Fragmento(fuente="error", texto=f"Búsqueda no disponible: {error}")]
