@@ -125,7 +125,7 @@ def test_pieza_inexistente_pedida_por_el_cliente_va_a_revision(grafo, clasificac
 
     assert "__interrupt__" in resultado
     motivos = resultado["__interrupt__"][0].value["motivos"]
-    assert motivos == ["El cliente menciona SI-M12-06P, que no existe en el catálogo."]
+    assert motivos == ["El cliente pide SI-M12-06P, que no existe en el catálogo."]
 
 
 def test_pieza_inventada_por_el_modelo_va_a_revision(grafo, clasificacion_falsa, monkeypatch):
@@ -138,3 +138,45 @@ def test_pieza_inventada_por_el_modelo_va_a_revision(grafo, clasificacion_falsa,
     assert "__interrupt__" in resultado
     assert "SI-M18-09P" in " ".join(resultado["__interrupt__"][0].value["motivos"])
     assert len(servicios.BANDEJA_DE_SALIDA) == 0  # nada sale sin que una persona lo vea
+
+
+def test_dato_de_otra_pieza_lo_detecta_el_verificador_agente(grafo, clasificacion_falsa, revision_falsa, monkeypatch):
+    """El piso literal no lo ve (8 mm existe, pero es del SI-M18-08P); el verificador sí,
+    y el código respeta su veredicto."""
+    from soporte import llm
+
+    clasificacion_falsa(intencion="especificacion", urgencia="baja")
+    monkeypatch.setattr(llm, "redactar_con_llm", lambda prompt: "El SI-M18-08P detecta a 4 mm.")
+    revision_falsa(
+        afirmaciones=[
+            {
+                "afirmacion": "El SI-M18-08P detecta a 4 mm",
+                "veredicto": "contradicha",
+                "fuente": "sensores-inductivos#SI-M18-08P",
+                "explicacion": "La ficha dice 8 mm.",
+            }
+        ],
+        busquedas=[{"termino": "SI-M18-08P", "fuentes": ["sensores-inductivos#SI-M18-08P"]}],
+    )
+    resultado = grafo.invoke(CORREO, config())
+
+    assert "__interrupt__" in resultado
+    piso = resultado["verificacion"]["afirmaciones"]
+    assert all(a["estado"] != "no_encontrado" for a in piso)  # el piso solo no lo habría frenado
+    assert "contradice el catálogo" in resultado["__interrupt__"][0].value["motivos"][0]
+
+
+def test_si_el_verificador_falla_va_a_revision(grafo, clasificacion_falsa, monkeypatch):
+    from soporte import llm
+
+    clasificacion_falsa(intencion="especificacion", urgencia="baja")
+
+    def falla(cuerpo, borrador):
+        raise TimeoutError("el modelo no respondió")
+
+    monkeypatch.setattr(llm, "verificar_con_llm", falla)
+    resultado = grafo.invoke(CORREO, config())
+
+    assert "__interrupt__" in resultado  # falla de forma segura: no se envía sin verificar
+    assert resultado["verificacion"]["error"] == "el modelo no respondió"
+    assert len(servicios.BANDEJA_DE_SALIDA) == 0

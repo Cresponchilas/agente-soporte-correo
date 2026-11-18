@@ -3,6 +3,10 @@ ni necesiten llaves de API."""
 
 import hashlib
 import math
+import os
+
+# Los tests no mandan trazas a LangSmith aunque el .env lo tenga activado.
+os.environ["LANGSMITH_TRACING"] = "false"
 
 import pytest
 from langchain_core.embeddings import Embeddings
@@ -41,8 +45,22 @@ def clasificacion_falsa(monkeypatch):
     return _configurar
 
 
+@pytest.fixture
+def revision_falsa(monkeypatch):
+    """Permite que cada test decida qué 'responde' el verificador agente."""
+
+    def _configurar(afirmaciones=(), busquedas=()):
+        revision = {"afirmaciones": list(afirmaciones), "busquedas": list(busquedas)}
+        monkeypatch.setattr(llm, "verificar_con_llm", lambda cuerpo, borrador: revision)
+        return revision
+
+    return _configurar
+
+
 @pytest.fixture(autouse=True)
 def sin_llamadas_reales(monkeypatch):
     monkeypatch.setattr(llm, "redactar_con_llm", lambda prompt: "Hola, este es un borrador de prueba.")
+    # Por defecto el verificador agente no encuentra nada que comprobar.
+    monkeypatch.setattr(llm, "verificar_con_llm", lambda cuerpo, borrador: {"afirmaciones": [], "busquedas": []})
     indice_falso = kb.construir_indice(EmbeddingsFalsos())
     monkeypatch.setattr(kb, "indice", lambda: indice_falso)

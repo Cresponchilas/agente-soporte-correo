@@ -14,7 +14,7 @@ Urgencia = Literal["baja", "media", "alta", "critica"]
 
 
 class Clasificacion(BaseModel):
-    """Esquema que el LLM debe devolver (structured output)."""
+    """Esquema que el clasificador debe devolver (structured output)."""
 
     intencion: Intencion = Field(
         description="especificacion, cotizacion, reemplazo, garantia, o complejo si no encaja en ninguna"
@@ -22,6 +22,23 @@ class Clasificacion(BaseModel):
     urgencia: Urgencia = Field(description="baja, media, alta o critica")
     tema: str = Field(description="Tema principal en pocas palabras, útil como consulta de búsqueda; incluye los números de pieza que mencione el cliente")
     resumen: str = Field(description="Resumen del correo en una frase")
+
+
+class AfirmacionRevisada(BaseModel):
+    afirmacion: str = Field(description="La afirmación del borrador, copiada casi textual")
+    veredicto: Literal["respaldada", "contradicha", "sin_respaldo"] = Field(
+        description="respaldada: el catálogo dice lo mismo; contradicha: dice otra cosa; sin_respaldo: no encontraste nada que lo confirme"
+    )
+    fuente: str | None = Field(
+        description="La sección que la respalda o la contradice, exactamente como apareció entre corchetes en buscar_en_catalogo (p. ej. sensores-inductivos#SI-M12-04P); null si no hay"
+    )
+    explicacion: str = Field(description="Una frase corta con la razón del veredicto")
+
+
+class EntregarVeredicto(BaseModel):
+    """Entrega el resultado final de la verificación. Llámala una sola vez, al final, cuando ya hayas leído los resultados de tus búsquedas."""
+
+    afirmaciones: list[AfirmacionRevisada] = Field(description="Cada afirmación verificable del borrador con su veredicto")
 
 
 class ClasificacionDict(TypedDict):

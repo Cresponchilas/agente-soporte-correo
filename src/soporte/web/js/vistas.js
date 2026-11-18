@@ -220,20 +220,49 @@ function vistaBusquedaExacta(busqueda) {
   return `<p class="resultado__linea">Búsqueda exacta de los códigos del correo: ${partes.join(", ")}.</p>`;
 }
 
+const VEREDICTOS = {
+  respaldada: { marca: "✓", texto: "respaldada" },
+  contradicha: { marca: "✗", texto: "contradice el catálogo" },
+  sin_respaldo: { marca: "?", texto: "sin respaldo" },
+};
+
+const secciones = (n) => (n === 1 ? "1 sección" : `${n} secciones`);
+
 function vistaVerificacion(verificacion) {
   const veredicto = verificacion.aprobada
-    ? `<p class="aviso aviso--ok">Todo número de pieza y dato del borrador existe en el catálogo.</p>`
+    ? `<p class="aviso aviso--ok">Ni el piso literal ni el verificador encontraron algo sin respaldo.</p>`
     : `<div class="aviso aviso--error"><strong>No se envía sin revisión.</strong><ul>${verificacion.motivos.map((m) => `<li>${esc(m)}</li>`).join("")}</ul></div>`;
-  const filas = verificacion.afirmaciones
+  return veredicto + vistaPiso(verificacion.afirmaciones) + vistaAgente(verificacion);
+}
+
+function vistaPiso(afirmaciones) {
+  const filas = afirmaciones
     .map((a) => {
       const estado = ESTADOS_AFIRMACION[a.estado];
       return `<tr data-estado="${a.estado}"><td><span aria-hidden="true">${estado.marca}</span> ${esc(a.texto)}</td><td>${estado.texto}</td><td>${a.fuente ? esc(a.fuente.replace("#", ", ")) : "—"}</td></tr>`;
     })
     .join("");
-  const tabla = verificacion.afirmaciones.length
+  const contenido = afirmaciones.length
     ? `<table class="verificacion"><thead><tr><th scope="col">Lo que dice el borrador</th><th scope="col">Resultado</th><th scope="col">Dónde está</th></tr></thead><tbody>${filas}</tbody></table>`
     : `<p class="resultado__pendiente">El borrador no menciona números de pieza ni datos con unidades.</p>`;
-  return veredicto + tabla;
+  return `<h4 class="verificacion__capa">Piso literal, sin LLM: cada código y dato con unidad, buscado tal cual</h4>${contenido}`;
+}
+
+function vistaAgente({ revisadas = [], busquedas = [], error = null }) {
+  const titulo = `<h4 class="verificacion__capa">Verificador agente: un LLM que elige qué comprobar y busca en el catálogo</h4>`;
+  if (error) return `${titulo}<p class="resultado__pendiente">El verificador no pudo terminar, así que la respuesta pasa por revisión.</p>`;
+  const buscado = busquedas.length
+    ? `<p class="resultado__linea">Buscó ${busquedas.map((b) => `<q>${esc(b.termino)}</q> (${b.fuentes.length ? secciones(b.fuentes.length) : "nada"})`).join(", ")}.</p>`
+    : `<p class="resultado__linea">No hizo búsquedas.</p>`;
+  if (revisadas.length === 0) return `${titulo}${buscado}<p class="resultado__pendiente">No encontró afirmaciones que comprobar.</p>`;
+  const filas = revisadas
+    .map((a) => {
+      const v = VEREDICTOS[a.veredicto] ?? { marca: "", texto: a.veredicto };
+      const donde = a.fuente ? `${esc(a.fuente.replace("#", ", "))}. ` : "";
+      return `<tr data-veredicto="${esc(a.veredicto)}"><td><span aria-hidden="true">${v.marca}</span> ${esc(a.afirmacion)}</td><td>${v.texto}</td><td>${donde}${esc(a.explicacion)}</td></tr>`;
+    })
+    .join("");
+  return `${titulo}${buscado}<table class="verificacion"><thead><tr><th scope="col">Afirmación</th><th scope="col">Veredicto</th><th scope="col">Fuente y razón</th></tr></thead><tbody>${filas}</tbody></table>`;
 }
 
 function vistaFuentes(fragmentos) {
@@ -361,10 +390,11 @@ function resumirActualizacion(nodo, a) {
     case "verificar_respuesta": {
       const v = a.verificacion;
       if (!v) return undefined;
-      const sinRespaldo = v.afirmaciones.filter((x) => x.estado === "no_encontrado").length;
-      return v.aprobada
-        ? `${v.afirmaciones.length} datos comprobados en el catálogo`
-        : `${sinRespaldo} dato(s) sin respaldo; va a revisión`;
+      const literal = `${v.afirmaciones.length} datos literales`;
+      const n = (v.revisadas ?? []).length;
+      const k = (v.busquedas ?? []).length;
+      const agente = v.error ? "el verificador falló" : `${n} ${n === 1 ? "afirmación" : "afirmaciones"} con ${k} ${k === 1 ? "búsqueda" : "búsquedas"}`;
+      return `${literal}, ${agente}. ${v.aprobada ? "Todo con respaldo" : "Va a revisión"}`;
     }
     case "redactar_respuesta":
       return typeof a.borrador === "string" ? `Borrador de ${a.borrador.split(/\s+/).length} palabras` : undefined;

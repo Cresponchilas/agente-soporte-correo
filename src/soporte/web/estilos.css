@@ -908,3 +908,24 @@ textarea {
   color: var(--rojo-correo);
   font-weight: 500;
 }
+
+.verificacion__capa {
+  margin: calc(var(--paso) * 2) 0 calc(var(--paso) * 0.5);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--tinta-suave);
+}
+
+.verificacion tr[data-veredicto="respaldada"] td:first-child {
+  color: var(--sello);
+}
+
+.verificacion tr[data-veredicto="sin_respaldo"] td:first-child {
+  color: var(--ambar);
+  font-weight: 500;
+}
+
+.verificacion tr[data-veredicto="contradicha"] td:first-child {
+  color: var(--rojo-correo);
+  font-weight: 500;
+}
