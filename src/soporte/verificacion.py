@@ -4,21 +4,26 @@ El RAG vectorial encuentra textos *parecidos*; eso sirve para preguntas, pero fa
 justo con lo que más importa en un catálogo: los códigos exactos. "SI-M12-04P" y
 "SI-M12-06P" se parecen mucho como vectores y son piezas distintas (una no existe).
 
-Por eso hay dos pasos sin LLM, con búsqueda literal de texto:
+Por eso hay dos pasos con búsqueda literal de texto:
 
-1. Búsqueda exacta: los números de pieza que escribe el cliente se buscan tal cual en
-   el catálogo. Complementa al RAG vectorial y detecta piezas que no existen.
-2. Verificación final: antes de enviar, cada número de pieza y cada dato con unidad
-   que escribió el LLM (precios, medidas, plazos) tiene que aparecer literalmente en
-   el catálogo. Lo que no aparece es un posible invento y manda la respuesta a
-   revisión humana.
+1. Búsqueda exacta (previene): los números de pieza que escribe el cliente se buscan
+   tal cual en el catálogo, ANTES de redactar, para que el modelo reciba la ficha
+   correcta aunque la búsqueda vectorial no la traiga.
+2. Verificación final (detecta): antes de enviar, un piso literal comprueba cada
+   número de pieza y dato con unidad del borrador, y un verificador agente (un LLM
+   con la herramienta `buscar_en_catalogo`) comprueba lo que la regex no ve. Lo que
+   no tiene respaldo manda la respuesta a revisión humana.
 
-Todo aquí son funciones puras: mismas entradas, mismo resultado, sin red.
+Todo aquí son funciones puras: mismas entradas, mismo resultado, sin red. El LLM del
+verificador vive en llm.py; aquí solo están su herramienta y las reglas que juzgan
+lo que devuelve.
 """
 
 import re
 import unicodedata
-from typing import Literal, TypedDict
+from typing import Literal
+
+from typing_extensions import NotRequired, TypedDict
 
 from soporte.state import Fragmento
 
@@ -41,9 +46,35 @@ class Afirmacion(TypedDict):
     fuente: str | None  # sección donde se encontró, si se encontró
 
 
+Veredicto = Literal["respaldada", "contradicha", "sin_respaldo"]
+
+
+class AfirmacionRevisada(TypedDict):
+    """Una afirmación que el verificador agente eligió comprobar."""
+
+    afirmacion: str
+    veredicto: Veredicto
+    fuente: str | None
+    explicacion: str
+
+
+class Busqueda(TypedDict):
+    termino: str
+    fuentes: list[str]
+    texto: NotRequired[str]  # lo que leyó el modelo; no se guarda en el estado
+
+
+class RevisionDelVerificador(TypedDict):
+    afirmaciones: list[AfirmacionRevisada]
+    busquedas: list[Busqueda]  # registradas por el código, no reportadas por el modelo
+
+
 class Verificacion(TypedDict):
     aprobada: bool
-    afirmaciones: list[Afirmacion]
+    afirmaciones: list[Afirmacion]  # el piso literal
+    revisadas: list[AfirmacionRevisada]  # lo que eligió comprobar el verificador agente
+    busquedas: list[Busqueda]
+    error: str | None
     motivos: list[str]  # por qué no se aprueba; vacío si se aprueba
 
 
@@ -73,8 +104,10 @@ def contiene(texto: str, termino: str) -> bool:
 
 
 def buscar_en(fragmentos: list[Fragmento], termino: str) -> list[str]:
-    """Fuentes de los fragmentos que contienen el término (el "grep")."""
-    return [f["fuente"] for f in fragmentos if contiene(f["texto"], termino)]
+    """Fuentes de los fragmentos que contienen el término (el "grep"). Primero la sección
+    cuyo título es el término (la ficha de la pieza), luego las que solo lo mencionan."""
+    fuentes = [f["fuente"] for f in fragmentos if contiene(f["texto"], termino)]
+    return sorted(fuentes, key=lambda fuente: not contiene(fuente.split("#")[-1], termino))
 
 
 # ---------- Extracción ----------
@@ -126,13 +159,20 @@ def combinar_contexto(vectorial: list[Fragmento], exacta: list[Fragmento]) -> li
 
 
 # ---------- Paso 2: verificación final ----------
+#
+# Tiene dos partes que se suman:
+# - el piso literal (sin LLM): todo número de pieza y dato con unidad del borrador
+#   tiene que existir en el catálogo. Se comprueba siempre.
+# - el verificador agente (LLM con la herramienta buscar_en_catalogo): elige qué más
+#   comprobar, como a qué pieza pertenece cada dato o una política de garantía.
+# El LLM puede agregar comprobaciones, pero no quitar las del piso, y la decisión
+# final (enviar o revisar) la toma este código, no el modelo.
 
 
-def verificar(borrador: str, vistos: list[Fragmento], catalogo: list[Fragmento], codigos_inexistentes: list[str]) -> Verificacion:
-    """Comprueba cada número de pieza y dato del borrador contra lo que el modelo vio
-    (`vistos`) y contra el catálogo completo.
+def comprobar_literal(borrador: str, vistos: list[Fragmento], catalogo: list[Fragmento]) -> list[Afirmacion]:
+    """El piso: cada número de pieza y dato del borrador, buscado tal cual.
 
-    - respaldado: aparece en lo que vio el modelo.
+    - respaldado: aparece en lo que vio el modelo (`vistos`).
     - fuera_de_contexto: no estaba en lo que vio, pero sí existe en el catálogo
       (es real, aunque el modelo no tenía cómo saberlo: se informa, no se bloquea).
     - no_encontrado: no aparece en ninguna parte del catálogo: posible invento.
@@ -144,11 +184,65 @@ def verificar(borrador: str, vistos: list[Fragmento], catalogo: list[Fragmento],
         en_catalogo = en_vistos or buscar_en(catalogo, texto)
         estado: EstadoAfirmacion = "respaldado" if en_vistos else "fuera_de_contexto" if en_catalogo else "no_encontrado"
         afirmaciones.append(Afirmacion(texto=texto, tipo=tipo, estado=estado, fuente=en_catalogo[0] if en_catalogo else None))
+    return afirmaciones
 
-    motivos = [f"El cliente menciona {codigo}, que no existe en el catálogo." for codigo in codigos_inexistentes]
+
+def buscar_en_catalogo(termino: str, catalogo: list[Fragmento], maximo: int = 4) -> Busqueda:
+    """La herramienta del verificador: el mismo "grep", con el texto de cada sección
+    encontrada para que el modelo pueda comparar. Es determinista: el LLM solo
+    decide QUÉ buscar; qué hay en el catálogo lo responde siempre este código."""
+    fuentes = buscar_en(catalogo, termino)
+    if not fuentes:
+        return Busqueda(termino=termino, fuentes=[], texto=f'Sin coincidencias para "{termino}" en el catálogo.')
+    por_fuente = {f["fuente"]: f["texto"] for f in catalogo}
+    partes = [f"[{fuente}]\n{por_fuente[fuente]}" for fuente in fuentes[:maximo]]
+    if len(fuentes) > maximo:
+        partes.append(f"(y {len(fuentes) - maximo} secciones más; usa un término más específico)")
+    return Busqueda(termino=termino, fuentes=fuentes, texto="\n\n".join(partes))
+
+
+def validar_revision(revisadas: list[AfirmacionRevisada], busquedas: list[Busqueda]) -> list[AfirmacionRevisada]:
+    """No se le cree al LLM sin evidencia: una afirmación solo cuenta como respaldada
+    si cita una sección que la herramienta de verdad devolvió en esta verificación."""
+    devueltas = {fuente for b in busquedas for fuente in b["fuentes"]}
+    validadas = []
+    for a in revisadas:
+        if a["veredicto"] == "respaldada" and a.get("fuente") not in devueltas:
+            a = {**a, "veredicto": "sin_respaldo", "explicacion": "El verificador la dio por buena, pero no citó una sección que haya encontrado."}
+        validadas.append(a)
+    return validadas
+
+
+def armar_verificacion(
+    piso: list[Afirmacion],
+    revision: RevisionDelVerificador,
+    codigos_inexistentes: list[str],
+    error: str | None = None,
+) -> Verificacion:
+    """Junta el piso literal, la revisión del agente y la búsqueda exacta en un solo
+    resultado, con un motivo por cada problema (sin repetir ninguno)."""
+    revisadas = validar_revision(revision["afirmaciones"], revision["busquedas"])
+
+    motivos = [f"El cliente pide {codigo}, que no existe en el catálogo." for codigo in codigos_inexistentes]
     motivos += [
         f"La respuesta menciona {a['texto']}, que no aparece en el catálogo."
-        for a in afirmaciones
-        if a["estado"] == "no_encontrado" and a["texto"] not in codigos_inexistentes
+        for a in piso
+        if a["estado"] == "no_encontrado" and a["texto"] not in codigos_inexistentes  # ya avisado arriba
     ]
-    return Verificacion(aprobada=not motivos, afirmaciones=afirmaciones, motivos=motivos)
+    for a in revisadas:
+        if a["veredicto"] == "contradicha":
+            motivos.append(f"«{a['afirmacion']}» contradice el catálogo: {a['explicacion']}")
+        elif a["veredicto"] == "sin_respaldo":
+            motivos.append(f"«{a['afirmacion']}» no tiene respaldo en el catálogo.")
+    if error:
+        # Falla de forma segura: si no se pudo verificar, decide una persona.
+        motivos.append("No se pudo completar la revisión del verificador; revísala tú.")
+
+    return Verificacion(
+        aprobada=not motivos,
+        afirmaciones=piso,
+        revisadas=revisadas,
+        busquedas=[Busqueda(termino=b["termino"], fuentes=b["fuentes"]) for b in revision["busquedas"]],
+        error=error,
+        motivos=motivos,
+    )

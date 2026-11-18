@@ -9,6 +9,7 @@ from langgraph.types import Command, interrupt
 
 from soporte import kb, llm, prompts, servicios, verificacion
 from soporte.state import EstadoCorreo, Fragmento
+from soporte.verificacion import RevisionDelVerificador
 
 logger = logging.getLogger(__name__)
 
@@ -110,13 +111,31 @@ def redactar_respuesta(estado: EstadoCorreo) -> dict:
 
 
 def verificar_respuesta(estado: EstadoCorreo) -> Command[Literal["revision_humana", "enviar_respuesta"]]:
-    """Último control antes de enviar, sin LLM: cada número de pieza y dato del borrador
-    tiene que existir literalmente en el catálogo. Si no, va a revisión humana."""
-    resultado = verificacion.verificar(
-        estado["borrador"],
-        vistos=estado.get("contexto", []),
-        catalogo=kb.catalogo(),
+    """Último control antes de enviar, en dos capas:
+
+    1. Piso literal (sin LLM): cada número de pieza y dato del borrador tiene que
+       existir tal cual en el catálogo. Se comprueba siempre.
+    2. Verificador agente: un LLM con la herramienta buscar_en_catalogo elige qué más
+       comprobar (a qué pieza pertenece cada dato, políticas, compatibilidades).
+
+    El LLM solo opina; el código decide. Cualquier problema, o que el verificador
+    falle, manda la respuesta a revisión humana: lo peor que puede pasar es revisar
+    de más, no dejar pasar un invento.
+    """
+    catalogo = kb.catalogo()
+    piso = verificacion.comprobar_literal(estado["borrador"], estado.get("contexto", []), catalogo)
+    try:
+        revision = llm.verificar_con_llm(estado["cuerpo"], estado["borrador"])
+        error = None
+    except Exception as falla:  # noqa: BLE001
+        logger.warning("Falló el verificador agente: %s", falla)
+        revision, error = RevisionDelVerificador(afirmaciones=[], busquedas=[]), str(falla)
+
+    resultado = verificacion.armar_verificacion(
+        piso,
+        revision,
         codigos_inexistentes=estado.get("busqueda_exacta", {}).get("inexistentes", []),
+        error=error,
     )
     motivos = resultado["motivos"] + motivos_de_negocio(estado)
     # Command = actualizar el estado y elegir el siguiente nodo en el mismo return.

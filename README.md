@@ -13,8 +13,9 @@ automatización industrial (sensores, válvulas neumáticas, fuentes de poder), 
    - consulta el historial del cliente;
    - abre un caso si es una garantía o la línea del cliente está parada.
 3. **Redacta** una respuesta usando solo lo que encontraron las dos búsquedas.
-4. **Verifica sin LLM** que cada número de pieza y cada dato del borrador (precios, medidas, plazos)
-   exista literalmente en el catálogo.
+4. **Verifica** el borrador en dos capas: un piso literal sin LLM (cada número de pieza y dato con unidad
+   tiene que existir en el catálogo) y un **verificador agente**, un segundo LLM que elige qué más comprobar
+   y busca en el catálogo con una herramienta determinista.
 5. **Decide con código** si una persona debe revisarla: por la verificación o por reglas de negocio. Si sí,
    **se pausa** con `interrupt()` y espera a que alguien apruebe, edite o rechace, viendo el motivo.
 6. **Envía** la respuesta (simulado).
@@ -27,14 +28,38 @@ Un RAG vectorial encuentra textos *parecidos*. Para un catálogo eso es un riesg
 `SI-M12-06P` se parecen mucho como vectores, pero la segunda pieza no existe. Un modelo que recibe la ficha
 de la primera puede contestar sobre la segunda con total seguridad.
 
-Por eso hay dos pasos determinísticos (`src/soporte/verificacion.py`), en la línea de "grep is all you need":
+Por eso la búsqueda literal (`src/soporte/verificacion.py`, en la línea de "grep is all you need") aparece en
+dos momentos con trabajos distintos: uno **previene** y el otro **detecta**.
 
-| Paso | Cuándo | Qué hace | Qué detecta |
+| Paso | Cuándo | Qué hace | Para qué |
 |---|---|---|---|
-| Búsqueda exacta | En paralelo con la vectorial | Busca literalmente los números de pieza del correo | Piezas que el cliente nombra y no existen; fichas que la búsqueda vectorial no trajo |
-| Verificación final | Después de redactar, antes de enviar | Extrae números de pieza y datos con unidad del borrador y los busca en el catálogo | Referencias, precios o medidas que el modelo inventó |
+| Búsqueda exacta | En paralelo con la vectorial, antes de redactar | Busca literalmente los números de pieza del correo | **Previene:** el modelo recibe la ficha correcta aunque la vectorial no la traiga, y se sabe si el cliente pide una pieza que no existe |
+| Piso literal | Después de redactar | Extrae números de pieza y datos con unidad del borrador y los busca tal cual | **Detecta** referencias, precios o medidas inventadas |
+| Verificador agente | Después de redactar | Un LLM elige qué afirmaciones comprobar y las busca con la herramienta `buscar_en_catalogo` | **Detecta** lo que una regex no ve: un dato real atribuido a otra pieza, compatibilidades, políticas |
 
-Cada dato del borrador queda en uno de tres estados:
+### Por qué hay un verificador agente
+
+El piso literal tiene un punto ciego: comprueba que cada término exista, no a qué pieza pertenece.
+"El SI-M12-04P detecta a 8 mm" pasa el piso, porque `SI-M12-04P` y `8 mm` existen en el catálogo, pero
+8 mm es del SI-M18-08P. El verificador agente lee la ficha que devuelve su búsqueda y marca la afirmación
+como contradicha.
+
+Cómo se reparte el trabajo:
+
+- **El LLM decide qué buscar; la herramienta decide qué hay.** `buscar_en_catalogo` es la misma búsqueda
+  literal, sin LLM. El modelo no puede "encontrar" algo que no está.
+- **El piso no se negocia.** El verificador puede agregar comprobaciones, pero no quitar las del piso.
+- **No se le cree sin evidencia.** Una afirmación solo cuenta como respaldada si cita una sección que la
+  herramienta de verdad devolvió en esa verificación; si no, el código la baja a "sin respaldo".
+- **El código decide.** Cualquier contradicción, afirmación sin respaldo o falla del verificador (timeout,
+  veredicto mal formado, se le acabaron las vueltas) manda la respuesta a revisión humana. Lo peor que puede
+  pasar es revisar de más, no dejar pasar un invento.
+- **Es un agente con tope.** Un loop de herramientas de máximo 5 vueltas con `tool_choice="any"`: en cada vuelta
+  tiene que buscar o entregar el veredicto (que es otra herramienta con esquema Pydantic), así que nunca
+  responde en texto libre. Si entrega el veredicto en la misma vuelta en que pide búsquedas, no se acepta:
+  lo escribió antes de leer los resultados.
+
+En el piso literal, cada dato del borrador queda en uno de tres estados:
 
 - **respaldado:** está en lo que el modelo vio;
 - **fuera de contexto:** existe en el catálogo, pero el modelo no lo vio (se informa, no se bloquea);
@@ -74,6 +99,7 @@ Las líneas punteadas son rutas condicionales.
 | Salida estructurada (Pydantic) | `llm.py`, `clasificar_con_llm` |
 | RAG: fragmentar, hacer embeddings y buscar | `kb.py` |
 | Búsqueda exacta y verificación determinística | `verificacion.py`, nodos `busqueda_exacta` y `verificar_respuesta` |
+| Agente con herramientas (loop con tope, `bind_tools`, `tool_choice`) | `llm.verificar_con_llm`, `tests/test_verificador_agente.py` |
 | Arista condicional con varias ramas en paralelo | `nodes.rutas_tras_clasificar` + `graph.py` |
 | `Command` (actualizar estado y enrutar a la vez) | `nodes.verificar_respuesta`, `nodes.revision_humana` |
 | Human in the loop con `interrupt()` | `nodes.revision_humana` |
@@ -145,12 +171,13 @@ Cómo falla de forma controlada:
 
 ## Costo
 
-Por defecto se usa `gpt-4.1-mini` y `text-embedding-3-small`; los dos se cambian en `.env`. Con los precios publicados por OpenAI (revísalos antes de usar), un correo cuesta del orden de **un décimo de centavo de dólar**: dos llamadas al LLM de menos de 2.000 tokens. Una corrida completa de evals (8 correos más el juez) cuesta unos **2 centavos**. Configura un límite de gasto en el panel de OpenAI.
+Por defecto se usa `gpt-4.1-mini` y `text-embedding-3-small`; los dos se cambian en `.env`. Con los precios publicados por OpenAI (revísalos antes de usar), un correo cuesta del orden de **un décimo de centavo de dólar**: clasificar, redactar y dos o tres vueltas del verificador. Una corrida completa de evals (8 correos más el juez) cuesta unos **2 centavos**. Configura un límite de gasto en el panel de OpenAI.
 
 ## Decisiones de diseño
 
 - **Workflow, no agente libre.** El camino se conoce de antemano, así que un grafo explícito es más predecible y fácil de probar que un loop ReAct que decide solo.
-- **El LLM clasifica y redacta; el código decide.** Quién revisa lo deciden `motivos_de_negocio` y la verificación, no el prompt.
+- **El LLM clasifica, redacta y opina; el código decide.** Quién revisa lo deciden `motivos_de_negocio` y `armar_verificacion`, no el prompt.
+- **Un agente solo donde hace falta.** El flujo general es un workflow; el único paso con autonomía es elegir qué comprobar, y tiene tope de vueltas, herramientas deterministas y la decisión final fuera del modelo.
 - **Lo exacto se comprueba con búsqueda exacta.** Los embeddings sirven para encontrar; para confirmar un número de pieza o un precio se usa comparación literal.
 - **`interrupt()` al inicio del nodo.** Al reanudar, el nodo se ejecuta otra vez desde el principio; nada costoso o con efectos va antes de la pausa.
 - **Estado con tipos simples.** La clasificación se guarda como dict para que serialice bien en el checkpointer y se lea fácil en Studio.
@@ -159,7 +186,7 @@ Por defecto se usa `gpt-4.1-mini` y `text-embedding-3-small`; los dos se cambian
 
 ## Cómo se construyó
 
-En cuatro PRs apilados; cada uno parte del anterior y deja los tests en verde:
+En PRs apilados; cada uno parte del anterior y deja los tests en verde:
 
 1. `pr/01-flujo-basico`: flujo lineal y salida estructurada.
 2. `pr/02-rag-y-contexto`: RAG, historial y tickets en paralelo.
@@ -175,6 +202,9 @@ En cuatro PRs apilados; cada uno parte del anterior y deja los tests en verde:
    equivalencias y reglas de configuración; incluye dos casos trampa (una pieza y una combinación que no existen).
 10. `pr/10-verificacion-exacta`: búsqueda exacta de números de pieza en paralelo con la vectorial y verificación
     determinística del borrador antes de enviarlo; el dashboard muestra de dónde salió cada fuente y qué se verificó.
+11. `pr/11-verificador-agente`: un segundo LLM con la herramienta `buscar_en_catalogo` revisa lo que la regex no ve;
+    la regex queda como piso, el código valida la evidencia que cita el modelo y decide la ruta. Se quita el aviso
+    duplicado de la pieza inexistente.
 
 ## Siguientes pasos
 
