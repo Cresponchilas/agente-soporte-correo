@@ -5,11 +5,13 @@
          recibir_correo
                |
            clasificar
-        /      |       \\          <- arista condicional que devuelve una lista: ramas en paralelo
-  buscar_doc  historial  crear_ticket (solo si bug o urgencia crítica)
-        \\      |       /
-       redactar_respuesta          <- Command: decide revisión humana o envío directo
-          /          \\
+      /     |       |       \\          <- arista condicional que devuelve una lista: ramas en paralelo
+ vectorial exacta historial  ticket     (búsqueda vectorial, búsqueda exacta tipo grep, CRM, caso)
+      \\     |       |       /
+       redactar_respuesta              <- el LLM redacta con las dos búsquedas combinadas
+               |
+      verificar_respuesta              <- sin LLM: lo que dice el borrador ¿existe en el catálogo?
+          /          \\                  (Command: revisión humana o envío directo)
  revision_humana --> enviar_respuesta --> END
    (interrupt)  \\--> END (rechazado)
 """
@@ -31,7 +33,9 @@ def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
     builder.add_node("buscar_documentacion", nodes.buscar_documentacion)
     builder.add_node("consultar_historial", nodes.consultar_historial)
     builder.add_node("crear_ticket", nodes.crear_ticket)
+    builder.add_node("busqueda_exacta", nodes.busqueda_exacta)
     builder.add_node("redactar_respuesta", nodes.redactar_respuesta)
+    builder.add_node("verificar_respuesta", nodes.verificar_respuesta)
     builder.add_node("revision_humana", nodes.revision_humana)
     builder.add_node("enviar_respuesta", nodes.enviar_respuesta)
 
@@ -44,7 +48,8 @@ def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
     for rama in nodes.RAMAS_DE_CONTEXTO:
         builder.add_edge(rama, "redactar_respuesta")
 
-    # Las salidas de redactar_respuesta y revision_humana las crean sus Command.
+    builder.add_edge("redactar_respuesta", "verificar_respuesta")
+    # Las salidas de verificar_respuesta y revision_humana las crean sus Command.
     builder.add_edge("enviar_respuesta", END)
 
     return builder.compile(checkpointer=checkpointer)

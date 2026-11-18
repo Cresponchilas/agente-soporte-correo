@@ -71,6 +71,10 @@ def resumen_del_estado(valores: dict[str, Any], siguientes: tuple[str, ...]) -> 
     return {
         "clasificacion": valores.get("clasificacion"),
         "fragmentos": valores.get("fragmentos", []),
+        "busqueda_exacta": valores.get("busqueda_exacta"),
+        "contexto": valores.get("contexto", []),
+        "verificacion": valores.get("verificacion"),
+        "motivos_revision": valores.get("motivos_revision", []),
         "historial_cliente": valores.get("historial_cliente"),
         "ticket_id": valores.get("ticket_id"),
         "borrador": valores.get("borrador"),

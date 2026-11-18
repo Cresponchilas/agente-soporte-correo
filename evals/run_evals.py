@@ -48,7 +48,7 @@ def objetivo(inputs: dict) -> dict:
         "clasificacion": estado.get("clasificacion"),
         "pidio_revision": "__interrupt__" in resultado,
         "borrador": estado.get("borrador", ""),
-        "fragmentos": estado.get("fragmentos", []),
+        "fragmentos": estado.get("contexto", []),  # lo que de verdad vio el modelo
     }
 
 

@@ -4,26 +4,30 @@
 export const NOMBRES = {
   recibir_correo: "Recibir correo",
   clasificar: "Clasificar",
-  buscar_documentacion: "Buscar documentación",
+  buscar_documentacion: "Búsqueda vectorial",
+  busqueda_exacta: "Búsqueda exacta",
   consultar_historial: "Consultar historial",
-  crear_ticket: "Crear ticket",
+  crear_ticket: "Abrir caso",
   redactar_respuesta: "Redactar respuesta",
+  verificar_respuesta: "Verificar contra el catálogo",
   revision_humana: "Revisión humana",
   enviar_respuesta: "Enviar respuesta",
 };
 
 const NOMBRES_CORTOS = {
-  buscar_documentacion: "Documentos",
+  buscar_documentacion: "Vectorial",
+  busqueda_exacta: "Exacta",
   consultar_historial: "Historial",
-  crear_ticket: "Ticket",
+  crear_ticket: "Caso",
 };
 
 /** Cada fila es un superstep; los nodos de una misma fila pueden correr en paralelo. */
 export const FILAS = [
   ["recibir_correo"],
   ["clasificar"],
-  ["buscar_documentacion", "consultar_historial", "crear_ticket"],
+  ["buscar_documentacion", "busqueda_exacta", "consultar_historial", "crear_ticket"],
   ["redactar_respuesta"],
+  ["verificar_respuesta"],
   ["revision_humana"],
   ["enviar_respuesta"],
 ];

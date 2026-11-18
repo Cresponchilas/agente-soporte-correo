@@ -106,3 +106,35 @@ def test_busqueda_fallida_no_tumba_el_grafo(grafo, clasificacion_falsa, monkeypa
 def test_entrada_incompleta_da_error_claro(grafo):
     with pytest.raises(ValueError, match="remitente"):
         grafo.invoke({"asunto": "x", "cuerpo": "hola"}, config())
+
+
+def test_busqueda_exacta_agrega_la_ficha_de_la_pieza_al_contexto(grafo, clasificacion_falsa):
+    clasificacion_falsa(intencion="especificacion", urgencia="baja")
+    resultado = grafo.invoke(CORREO, config())  # el correo menciona el SI-M18-08P
+
+    assert "busqueda_exacta" in resultado["pasos"]
+    origen = {f["fuente"]: f["origen"] for f in resultado["contexto"]}
+    assert origen["sensores-inductivos#SI-M18-08P"] in ("exacta", "ambas")
+    assert resultado["verificacion"]["aprobada"] is True
+
+
+def test_pieza_inexistente_pedida_por_el_cliente_va_a_revision(grafo, clasificacion_falsa):
+    clasificacion_falsa(intencion="cotizacion", urgencia="baja")
+    correo = {**CORREO, "cuerpo": "¿Tienen en stock el SI-M12-06P? Necesito 4."}
+    resultado = grafo.invoke(correo, config())
+
+    assert "__interrupt__" in resultado
+    motivos = resultado["__interrupt__"][0].value["motivos"]
+    assert motivos == ["El cliente menciona SI-M12-06P, que no existe en el catálogo."]
+
+
+def test_pieza_inventada_por_el_modelo_va_a_revision(grafo, clasificacion_falsa, monkeypatch):
+    from soporte import llm
+
+    clasificacion_falsa(intencion="especificacion", urgencia="baja")
+    monkeypatch.setattr(llm, "redactar_con_llm", lambda prompt: "Le sirve el SI-M18-09P, a USD 46.")
+    resultado = grafo.invoke(CORREO, config())
+
+    assert "__interrupt__" in resultado
+    assert "SI-M18-09P" in " ".join(resultado["__interrupt__"][0].value["motivos"])
+    assert len(servicios.BANDEJA_DE_SALIDA) == 0  # nada sale sin que una persona lo vea

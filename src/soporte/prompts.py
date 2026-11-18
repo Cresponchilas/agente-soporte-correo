@@ -28,6 +28,7 @@ Reglas:
 - Usa SOLO la información de la documentación de abajo. Si la documentación responde
   la pregunta, incluye los datos concretos (especificaciones, precios, plazos) en la respuesta.
 - Copia los números de pieza, precios y especificaciones exactamente como aparecen en la documentación.
+- Da precios unitarios tal como aparecen; no calcules totales ni descuentos (eso lo confirma un asesor).
 - Si el cliente pide una pieza o una combinación que no aparece en la documentación, di que no la
   encuentras en el catálogo y que un asesor le confirmará. No inventes referencias, precios ni plazos.
 - Si hay número de caso, inclúyelo.
