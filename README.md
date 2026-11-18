@@ -1,7 +1,7 @@
 # Agente de soporte por correo (LangGraph + LangSmith)
 
-> Dashboard en vivo: `web/` (Next.js en Vercel) + API `src/soporte/api` (FastAPI en Render) + Postgres (Neon).
-> Guía paso a paso en [DESPLIEGUE.md](DESPLIEGUE.md).
+> Corre todo en tu computador con un solo comando: `python -m soporte.api` abre el dashboard en
+> http://localhost:8000. Solo necesitas una llave de OpenAI (y una de LangSmith para ver las trazas).
 
 Atiende los correos de soporte de **Contaflux**, una empresa ficticia de facturación electrónica:
 
@@ -60,7 +60,9 @@ cp .env.example .env               # llena OPENAI_API_KEY y LANGSMITH_API_KEY
 ## Cómo usarlo
 
 ```bash
-pytest                             # 27 tests (más 1 de Postgres si defines TEST_DATABASE_URL), sin llaves y sin gastar tokens (LLM falso)
+python -m soporte.api              # dashboard en http://localhost:8000 y API en /docs (abre el navegador)
+pytest                             # tests del backend, sin llaves y sin gastar tokens (LLM falso)
+node --test tests/js/logica.test.mjs   # opcional, si tienes Node: tests de la lógica del dashboard
 python scripts/demo.py             # procesa los 8 correos de ejemplo y te pide aprobar en consola
 python scripts/demo.py 1           # solo el correo #1 (cobro duplicado, pide revisión)
 langgraph dev --allow-blocking     # abre LangGraph Studio con el grafo
@@ -80,30 +82,33 @@ python evals/run_evals.py          # crea el dataset en LangSmith y corre el exp
 4. Reanuda con `{"accion": "aprobar"}`, `{"accion": "editar", "texto": "..."}` o `{"accion": "rechazar"}`.
 5. Abre la traza en LangSmith para ver el prompt, los fragmentos recuperados y los tokens de cada paso.
 
-## API (para el dashboard)
+## El dashboard y la API
 
-`src/soporte/api/` expone el grafo con FastAPI y transmite cada paso como Server-Sent Events:
+`python -m soporte.api` levanta un solo servidor (FastAPI) que sirve dos cosas:
+
+- **El dashboard** en `/`: HTML, CSS y JavaScript sin compilar (`src/soporte/web/`). Bandeja de casos de prueba,
+  detalle con la revisión humana y un panel de tránsito con cada nodo del grafo en vivo.
+- **La API** en `/api`, que transmite cada paso del grafo como Server-Sent Events:
 
 | Método | Ruta | Qué hace |
 |---|---|---|
-| GET | `/salud` | Estado del servidor y tipo de persistencia (postgres o memoria) |
-| GET | `/casos` | Los 8 correos de prueba con su resultado esperado |
-| POST | `/corridas` | Procesa un correo y transmite eventos: `inicio`, `nodo_inicio`, `nodo_fin`, `pausa`, `fin`, `error` |
-| POST | `/corridas/{id}/decision` | Reanuda una corrida pausada con `aprobar`, `editar` o `rechazar` |
-| GET | `/corridas/{id}` | Estado actual de una corrida |
+| GET | `/api/salud` | Estado del servidor y dónde guarda los checkpoints (sqlite o memoria) |
+| GET | `/api/casos` | Los correos de prueba con su resultado esperado |
+| POST | `/api/corridas` | Procesa un correo y transmite eventos: `inicio`, `nodo_inicio`, `nodo_fin`, `pausa`, `fin`, `error` |
+| POST | `/api/corridas/{id}/decision` | Reanuda una corrida pausada con `aprobar`, `editar` o `rechazar` |
+| GET | `/api/corridas/{id}` | Estado actual de una corrida |
 
-```bash
-pip install -e ".[dev]"
-uvicorn soporte.api.app:app --reload          # http://localhost:8000/docs
-```
+Los checkpoints del grafo se guardan en `data/checkpoints.sqlite`: si cierras el servidor con una corrida
+esperando revisión, al volver a abrirlo (y recargar la página) puedes aprobarla. Con `CHECKPOINTS=memoria`
+en `.env` se guardan en memoria.
 
 Cómo falla de forma controlada:
 
 - **Entradas inválidas:** 422 con el campo y el mensaje (`{"error": ..., "detalles": [...]}`).
 - **Errores a mitad del grafo:** llegan como evento `error` con un mensaje para el usuario; el detalle técnico solo va al log.
 - **Corrida inexistente o que no espera decisión:** 404 o 409.
-- **Abuso o gasto excesivo:** límite por IP y por día, con 429 y `Retry-After`.
-- **Llamadas al modelo:** con timeout y reintentos; sin `DATABASE_URL`, la API usa memoria y lo avisa en el log.
+- **Servidor apagado:** el dashboard lo indica y ofrece reintentar.
+- **Llamadas al modelo:** con timeout y reintentos.
 
 ## Costo
 
@@ -130,6 +135,8 @@ En cuatro PRs apilados; cada uno parte del anterior y deja los tests en verde:
    esquema de entrada para Studio, prompt que usa los datos concretos de la documentación).
 6. `pr/06-api`: API FastAPI con streaming, checkpointer Postgres y límites de uso.
 7. `pr/07-dashboard`: dashboard en Next.js con panel de tránsito en vivo y casos de prueba.
+8. `pr/08-ejecucion-local`: todo local con un comando: SQLite en vez de Postgres y dashboard sin compilar
+   servido por la misma API (sin Neon, Render, Vercel ni Node).
 
 ## Siguientes pasos
 

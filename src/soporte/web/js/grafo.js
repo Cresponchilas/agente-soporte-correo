@@ -1,7 +1,7 @@
 // Forma del grafo del agente, para dibujarlo en el panel de tránsito.
 // Debe coincidir con src/soporte/graph.py.
 
-export const NOMBRES: Record<string, string> = {
+export const NOMBRES = {
   recibir_correo: "Recibir correo",
   clasificar: "Clasificar",
   buscar_documentacion: "Buscar documentación",
@@ -12,15 +12,14 @@ export const NOMBRES: Record<string, string> = {
   enviar_respuesta: "Enviar respuesta",
 };
 
-/** Nombres cortos para el mapa, donde tres nodos comparten una fila. */
-export const NOMBRES_CORTOS: Record<string, string> = {
+const NOMBRES_CORTOS = {
   buscar_documentacion: "Documentos",
   consultar_historial: "Historial",
   crear_ticket: "Ticket",
 };
 
 /** Cada fila es un superstep; los nodos de una misma fila pueden correr en paralelo. */
-export const FILAS: string[][] = [
+export const FILAS = [
   ["recibir_correo"],
   ["clasificar"],
   ["buscar_documentacion", "consultar_historial", "crear_ticket"],
@@ -29,10 +28,5 @@ export const FILAS: string[][] = [
   ["enviar_respuesta"],
 ];
 
-export function nombreDeNodo(nodo: string): string {
-  return NOMBRES[nodo] ?? nodo;
-}
-
-export function nombreCorto(nodo: string): string {
-  return NOMBRES_CORTOS[nodo] ?? nombreDeNodo(nodo);
-}
+export const nombreDeNodo = (nodo) => NOMBRES[nodo] ?? nodo;
+export const nombreCorto = (nodo) => NOMBRES_CORTOS[nodo] ?? nombreDeNodo(nodo);

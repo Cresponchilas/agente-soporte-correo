@@ -31,5 +31,5 @@ class CasoDePrueba(BaseModel):
 
 class Salud(BaseModel):
     estado: Literal["ok"]
-    persistencia: Literal["postgres", "memoria"]
+    persistencia: Literal["sqlite", "memoria"]
     modelo: str
