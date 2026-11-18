@@ -8,3 +8,6 @@ venv/
 *.egg-info/
 build/
 dist/
+
+# Checkpoints locales del grafo
+data/checkpoints.sqlite*

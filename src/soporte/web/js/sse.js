@@ -1,14 +1,11 @@
 // Lector incremental de Server-Sent Events. Los datos llegan en pedazos arbitrarios
 // de la red: un evento puede venir partido en dos pedazos, o varios en uno solo.
 
-export interface LectorSSE {
-  leer(pedazo: string): unknown[];
-}
-
-export function crearLectorSSE(): LectorSSE {
+export function crearLectorSSE() {
   let pendiente = "";
 
   return {
+    /** Recibe un pedazo de texto y devuelve los eventos completos que ya se pueden leer. */
     leer(pedazo) {
       pendiente += pedazo.replace(/\r\n/g, "\n");
       const bloques = pendiente.split("\n\n");

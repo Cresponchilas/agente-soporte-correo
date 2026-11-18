@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mesa de soporte</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="estilos.css" />
+    <script type="module" src="js/main.js"></script>
+  </head>
+  <body>
+    <div class="aplicacion">
+      <header class="cabecera">
+        <div>
+          <h1 class="cabecera__titulo">Mesa de soporte</h1>
+          <p class="cabecera__subtitulo">Un agente de LangGraph clasifica, investiga y responde; tú apruebas lo delicado.</p>
+        </div>
+        <div id="estado-api"></div>
+      </header>
+
+      <p id="aviso-caida" class="aviso aviso--error cabecera__aviso" role="alert" hidden>
+        No hay conexión con el servidor. Revisa que siga corriendo <code>python -m soporte.api</code> y pulsa Reintentar.
+      </p>
+      <p id="aviso-error" class="aviso aviso--error cabecera__aviso" role="alert" hidden>
+        Algo falló en el navegador. Recarga la página: las corridas guardadas no se pierden.
+      </p>
+
+      <div class="tablero">
+        <nav id="bandeja" class="bandeja" aria-label="Correos"></nav>
+        <main class="centro">
+          <article class="detalle">
+            <header class="detalle__correo">
+              <div id="detalle-correo"></div>
+              <div id="detalle-acciones" class="detalle__acciones"></div>
+            </header>
+            <div id="detalle-resultado" class="resultado"></div>
+          </article>
+        </main>
+        <aside id="transito" class="transito" aria-label="Tránsito de la información"></aside>
+      </div>
+    </div>
+  </body>
+</html>
