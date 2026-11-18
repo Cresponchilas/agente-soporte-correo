@@ -10,7 +10,7 @@ from soporte import llm
 from soporte.api.ajustes import Ajustes
 from soporte.api.app import crear_app
 
-CORREO = {"remitente": "ana.ruiz@panaderialaespiga.co", "asunto": "Facturas", "cuerpo": "¿Dónde descargo mis facturas?"}
+CORREO = {"remitente": "ingenieria@integracionesnorte.co", "asunto": "Datos", "cuerpo": "¿Qué alimentación tiene el SI-M18-08P?"}
 
 
 def leer_eventos(respuesta) -> list[dict]:
@@ -41,7 +41,7 @@ def test_casos_de_prueba_disponibles(cliente):
 
 
 def test_corrida_simple_transmite_cada_nodo_y_termina(cliente, clasificacion_falsa):
-    clasificacion_falsa(intencion="pregunta", urgencia="baja")
+    clasificacion_falsa(intencion="especificacion", urgencia="baja")
     respuesta = cliente.post("/api/corridas", json=CORREO)
 
     assert respuesta.headers["content-type"].startswith("text/event-stream")
@@ -55,7 +55,7 @@ def test_corrida_simple_transmite_cada_nodo_y_termina(cliente, clasificacion_fal
 
 
 def test_corrida_urgente_pausa_y_se_reanuda_con_la_decision(cliente, clasificacion_falsa):
-    clasificacion_falsa(intencion="facturacion", urgencia="alta")
+    clasificacion_falsa(intencion="cotizacion", urgencia="alta")
     eventos = leer_eventos(cliente.post("/api/corridas", json=CORREO))
     assert "pausa" in tipos(eventos)
     assert eventos[-1]["estado"]["pausado_en"] == ["revision_humana"]
@@ -78,7 +78,7 @@ def test_decision_sobre_corrida_inexistente_da_404(cliente):
 
 
 def test_decision_sobre_corrida_terminada_da_409(cliente, clasificacion_falsa):
-    clasificacion_falsa(intencion="pregunta", urgencia="baja")
+    clasificacion_falsa(intencion="especificacion", urgencia="baja")
     thread_id = leer_eventos(cliente.post("/api/corridas", json=CORREO))[0]["thread_id"]
     assert cliente.post(f"/api/corridas/{thread_id}/decision", json={"accion": "aprobar"}).status_code == 409
 
@@ -123,7 +123,7 @@ def test_el_dashboard_se_sirve_en_la_raiz(cliente):
 
 
 def test_corrida_pausada_sobrevive_a_un_reinicio_con_sqlite(tmp_path, clasificacion_falsa):
-    clasificacion_falsa(intencion="bug", urgencia="critica")
+    clasificacion_falsa(intencion="garantia", urgencia="critica")
     ajustes = Ajustes(archivo_checkpoints=tmp_path / "checkpoints.sqlite")
 
     with TestClient(crear_app(ajustes)) as primer_servidor:

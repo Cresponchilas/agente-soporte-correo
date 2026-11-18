@@ -1,21 +1,18 @@
 {
-  "ana.ruiz@panaderialaespiga.co": {
-    "nombre": "Ana Ruiz",
-    "empresa": "Panadería La Espiga",
-    "plan": "Básico",
+  "ingenieria@integracionesnorte.co": {
+    "nombre": "Integraciones del Norte",
+    "tipo": "Integrador",
     "contactos_previos": 0
   },
-  "carlos.mejia@ferreteriamejia.com": {
-    "nombre": "Carlos Mejía",
-    "empresa": "Ferretería Mejía",
-    "plan": "Pyme",
-    "contactos_previos": 3,
-    "nota": "Escribió 3 veces este mes por el mismo error de la API."
-  },
-  "laura.gomez@logisticaandina.com": {
-    "nombre": "Laura Gómez",
-    "empresa": "Logística Andina",
-    "plan": "Empresa",
+  "compras@empacadoraelvalle.com": {
+    "nombre": "Empacadora El Valle",
+    "tipo": "Planta de producción",
     "contactos_previos": 1
+  },
+  "mantenimiento@textilesandes.com": {
+    "nombre": "Textiles Andes",
+    "tipo": "Planta de producción",
+    "contactos_previos": 3,
+    "nota": "Escribió 3 veces este mes por fallas en sensores de la misma máquina."
   }
 }

@@ -3,13 +3,14 @@
 > Corre todo en tu computador con un solo comando: `python -m soporte.api` abre el dashboard en
 > http://localhost:8000. Solo necesitas una llave de OpenAI (y una de LangSmith para ver las trazas).
 
-Atiende los correos de soporte de **Contaflux**, una empresa ficticia de facturación electrónica:
+Atiende los correos de clientes de **Andina Automatización**, un distribuidor ficticio de componentes de
+automatización industrial (sensores, válvulas neumáticas, fuentes de poder), con un catálogo de números de pieza:
 
 1. **Clasifica** el correo (intención y urgencia) con salida estructurada.
 2. **Junta contexto en paralelo:**
    - busca en la base de conocimiento (RAG);
    - consulta el historial del cliente;
-   - crea un ticket si es un bug o algo crítico.
+   - abre un caso si es una garantía o la línea del cliente está parada.
 3. **Redacta** una respuesta usando solo esa documentación.
 4. **Decide con código** si una persona debe revisarla. Si sí, **se pausa** con `interrupt()` y espera a que alguien apruebe, edite o rechace.
 5. **Envía** la respuesta (simulado).
@@ -64,7 +65,7 @@ python -m soporte.api              # dashboard en http://localhost:8000 y API en
 pytest                             # tests del backend, sin llaves y sin gastar tokens (LLM falso)
 node --test tests/js/logica.test.mjs   # opcional, si tienes Node: tests de la lógica del dashboard
 python scripts/demo.py             # procesa los 8 correos de ejemplo y te pide aprobar en consola
-python scripts/demo.py 1           # solo el correo #1 (cobro duplicado, pide revisión)
+python scripts/demo.py 4           # solo el correo #4 (línea parada, pide revisión)
 langgraph dev --allow-blocking     # abre LangGraph Studio con el grafo
 python evals/run_evals.py          # crea el dataset en LangSmith y corre el experimento
 ```
@@ -76,7 +77,7 @@ python evals/run_evals.py          # crea el dataset en LangSmith y corre el exp
    llamadas síncronas al iniciar; sin él, las corridas de Studio no aparecen en LangSmith.)
 2. En *Input* llena `remitente`, `asunto` y `cuerpo` (el grafo declara ese esquema de entrada), por ejemplo:
    ```json
-   {"remitente": "laura.gomez@logisticaandina.com", "asunto": "Cobro doble", "cuerpo": "Me cobraron dos veces la suscripción este mes."}
+   {"remitente": "mantenimiento@textilesandes.com", "asunto": "Línea parada", "cuerpo": "El sensor SI-M12-04P dejó de detectar y tenemos la línea parada."}
    ```
 3. Mira cómo corren en paralelo las ramas de contexto y cómo el grafo se detiene en `revision_humana`.
 4. Reanuda con `{"accion": "aprobar"}`, `{"accion": "editar", "texto": "..."}` o `{"accion": "rechazar"}`.
@@ -137,6 +138,8 @@ En cuatro PRs apilados; cada uno parte del anterior y deja los tests en verde:
 7. `pr/07-dashboard`: dashboard en Next.js con panel de tránsito en vivo y casos de prueba.
 8. `pr/08-ejecucion-local`: todo local con un comando: SQLite en vez de Postgres y dashboard sin compilar
    servido por la misma API (sin Neon, Render, Vercel ni Node).
+9. `pr/09-catalogo-industrial`: los datos pasan a un distribuidor de piezas industriales con números de pieza,
+   equivalencias y reglas de configuración; incluye dos casos trampa (una pieza y una combinación que no existen).
 
 ## Siguientes pasos
 

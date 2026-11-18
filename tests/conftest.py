@@ -33,7 +33,7 @@ class EmbeddingsFalsos(Embeddings):
 def clasificacion_falsa(monkeypatch):
     """Permite que cada test decida qué 'responde' el clasificador."""
 
-    def _configurar(intencion="pregunta", urgencia="baja", tema="tema", resumen="resumen"):
+    def _configurar(intencion="especificacion", urgencia="baja", tema="tema", resumen="resumen"):
         resultado = Clasificacion(intencion=intencion, urgencia=urgencia, tema=tema, resumen=resumen)
         monkeypatch.setattr(llm, "clasificar_con_llm", lambda *args, **kwargs: resultado)
         return resultado

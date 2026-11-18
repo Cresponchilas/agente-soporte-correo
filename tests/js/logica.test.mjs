@@ -52,7 +52,7 @@ describe("corrida", () => {
 
 describe("evaluación y textos", () => {
   it("acepta cualquiera de las intenciones válidas", () => {
-    assert.equal(evaluar({ intencion: ["facturacion", "pregunta"], necesita_revision: false }, resumen()).intencion.acierto, true);
+    assert.equal(evaluar({ intencion: ["cotizacion", "pregunta"], necesita_revision: false }, resumen()).intencion.acierto, true);
   });
   it("escapa HTML", () => assert.equal(esc('<b a="1">'), "&lt;b a=&quot;1&quot;&gt;"));
   it("usa singular y plural y formatea duraciones", () => {
