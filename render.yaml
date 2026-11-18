@@ -1,0 +1,29 @@
+# Blueprint de Render: en el panel, New > Blueprint > este repositorio.
+services:
+  - type: web
+    name: agente-soporte-api
+    runtime: python
+    plan: free
+    # -e: el paquete se usa desde el repo, así encuentra la carpeta data/.
+    buildCommand: pip install -e ".[api]"
+    startCommand: uvicorn soporte.api.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /salud
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_ORIGINS
+        sync: false
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_TRACING
+        value: "true"
+      - key: LANGSMITH_PROJECT
+        value: agente-soporte-correo
+      - key: CORRIDAS_POR_IP_POR_HORA
+        value: "15"
+      - key: CORRIDAS_POR_DIA
+        value: "300"

@@ -26,8 +26,9 @@ MODELO_EMBEDDINGS = os.getenv("MODELO_EMBEDDINGS", "openai:text-embedding-3-smal
 @lru_cache
 def modelo_chat():
     # temperature=0: para clasificar y redactar soporte queremos respuestas estables.
-    # max_tokens limita el costo de cada llamada.
-    return init_chat_model(MODELO_CHAT, temperature=0, max_tokens=700)
+    # max_tokens limita el costo de cada llamada; timeout y max_retries evitan que una
+    # llamada colgada bloquee el grafo indefinidamente.
+    return init_chat_model(MODELO_CHAT, temperature=0, max_tokens=700, timeout=30, max_retries=2)
 
 
 @lru_cache
