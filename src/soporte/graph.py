@@ -8,9 +8,10 @@
         /      |       \\          <- arista condicional que devuelve una lista: ramas en paralelo
   buscar_doc  historial  crear_ticket (solo si bug o urgencia crítica)
         \\      |       /
-       redactar_respuesta
-               |
-       enviar_respuesta --> END
+       redactar_respuesta          <- Command: decide revisión humana o envío directo
+          /          \\
+ revision_humana --> enviar_respuesta --> END
+   (interrupt)  \\--> END (rechazado)
 """
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -29,6 +30,7 @@ def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
     builder.add_node("consultar_historial", nodes.consultar_historial)
     builder.add_node("crear_ticket", nodes.crear_ticket)
     builder.add_node("redactar_respuesta", nodes.redactar_respuesta)
+    builder.add_node("revision_humana", nodes.revision_humana)
     builder.add_node("enviar_respuesta", nodes.enviar_respuesta)
 
     builder.add_edge(START, "recibir_correo")
@@ -40,7 +42,7 @@ def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
     for rama in nodes.RAMAS_DE_CONTEXTO:
         builder.add_edge(rama, "redactar_respuesta")
 
-    builder.add_edge("redactar_respuesta", "enviar_respuesta")
+    # Las salidas de redactar_respuesta y revision_humana las crean sus Command.
     builder.add_edge("enviar_respuesta", END)
 
     return builder.compile(checkpointer=checkpointer)
