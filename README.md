@@ -52,12 +52,30 @@ Cómo se reparte el trabajo:
 - **No se le cree sin evidencia.** Una afirmación solo cuenta como respaldada si cita una sección que la
   herramienta de verdad devolvió en esa verificación; si no, el código la baja a "sin respaldo".
 - **El código decide.** Cualquier contradicción, afirmación sin respaldo o falla del verificador (timeout,
-  veredicto mal formado, se le acabaron las vueltas) manda la respuesta a revisión humana. Lo peor que puede
+  se pasó del tope de llamadas, no entregó veredicto) manda la respuesta a revisión humana. Lo peor que puede
   pasar es revisar de más, no dejar pasar un invento.
-- **Es un agente con tope.** Un loop de herramientas de máximo 5 vueltas con `tool_choice="any"`: en cada vuelta
-  tiene que buscar o entregar el veredicto (que es otra herramienta con esquema Pydantic), así que nunca
-  responde en texto libre. Si entrega el veredicto en la misma vuelta en que pide búsquedas, no se acepta:
-  lo escribió antes de leer los resultados.
+
+### Cómo está hecho: `create_agent` y middleware
+
+El verificador usa `create_agent` de LangChain v1, que trae resuelto el loop de herramientas. Las reglas se
+le agregan como **middleware**: código que se engancha en ese loop sin tocar el agente.
+
+| Regla | Middleware | Tipo de gancho |
+|---|---|---|
+| Máximo 5 llamadas al modelo; si se pasa, error y revisión humana | `ModelCallLimitMiddleware` | De punto (`before_model`) |
+| Máximo 6 búsquedas; las de más no corren y el modelo entrega con lo que tiene | `ToolCallLimitMiddleware` | De punto |
+| No aceptar el veredicto si llega en la misma vuelta en que pide búsquedas | `exigir_lectura_antes_del_veredicto` (propio) | De envoltura (`wrap_model_call`) |
+
+Otras piezas de LangChain que usa:
+
+- **`ToolStrategy(EntregarVeredicto)`:** el veredicto es una herramienta más con esquema Pydantic. `create_agent`
+  obliga a llamar alguna herramienta en cada vuelta (`tool_choice="any"`), así que el modelo nunca responde en
+  texto libre, y si el veredicto llega mal formado le devuelve el error para que lo corrija.
+- **`@tool(response_format="content_and_artifact")`:** la herramienta devuelve el texto que lee el modelo y,
+  aparte, las fuentes encontradas. Las fuentes no pasan por el modelo; el código las usa para validar lo que cite.
+
+La regla de negocio (enviar o revisar) **no** es un middleware: queda en el nodo `verificar_respuesta`, fuera
+del agente, porque decidirla no le toca al modelo.
 
 En el piso literal, cada dato del borrador queda en uno de tres estados:
 
@@ -100,7 +118,7 @@ Las líneas punteadas son rutas condicionales.
 | RAG: fragmentar, hacer embeddings y buscar | `conocimiento/rag.py` |
 | Búsqueda exacta (el "grep") | `conocimiento/busqueda.py`, nodo `busqueda_exacta` |
 | Verificación: piso literal y reglas que juzgan al verificador | `conocimiento/verificacion.py`, nodo `verificar_respuesta` |
-| Agente con herramientas (loop con tope, `bind_tools`, `tool_choice`) | `agente/verificador.py`, `tests/test_verificador_agente.py` |
+| Agente con `create_agent` y middleware (límites, `wrap_model_call` propio) | `agente/verificador.py`, `tests/test_verificador_agente.py` |
 | Arista condicional con varias ramas en paralelo | `nodos.rutas_tras_clasificar` + `agente/flujo.py` |
 | `Command` (actualizar estado y enrutar a la vez) | `nodos.verificar_respuesta`, `nodos.revision_humana` |
 | Human in the loop con `interrupt()` | `nodos.revision_humana` |
@@ -202,7 +220,7 @@ Por defecto se usa `gpt-4.1-mini` y `text-embedding-3-small`; los dos se cambian
 
 - **Workflow, no agente libre.** El camino se conoce de antemano, así que un grafo explícito es más predecible y fácil de probar que un loop ReAct que decide solo.
 - **El LLM clasifica, redacta y opina; el código decide.** Quién revisa lo deciden `motivos_de_negocio` y `armar_verificacion`, no el prompt.
-- **Un agente solo donde hace falta.** El flujo general es un workflow; el único paso con autonomía es elegir qué comprobar, y tiene tope de vueltas, herramientas deterministas y la decisión final fuera del modelo.
+- **Un agente solo donde hace falta.** El flujo general es un workflow; el único paso con autonomía es elegir qué comprobar, y tiene topes por middleware, herramientas deterministas y la decisión final fuera del modelo.
 - **Lo exacto se comprueba con búsqueda exacta.** Los embeddings sirven para encontrar; para confirmar un número de pieza o un precio se usa comparación literal.
 - **`interrupt()` al inicio del nodo.** Al reanudar, el nodo se ejecuta otra vez desde el principio; nada costoso o con efectos va antes de la pausa.
 - **Estado con tipos simples.** La clasificación se guarda como dict para que serialice bien en el checkpointer y se lea fácil en Studio.
@@ -233,6 +251,8 @@ En PRs apilados; cada uno parte del anterior y deja los tests en verde:
 
 12. `pr/12-ordenar-por-responsabilidades`: el código pasa a dos paquetes, `agente/` (estado, flujo, nodos, llamadas al
     modelo) y `conocimiento/` (RAG, búsqueda literal, verificación), sin cambiar el comportamiento.
+13. `pr/13-verificador-con-middleware`: el verificador pasa de un loop escrito a mano a `create_agent` con middleware:
+    topes de llamadas y de búsquedas, y un `wrap_model_call` propio que exige leer antes de entregar el veredicto.
 ## Siguientes pasos
 
 - Reintento de la búsqueda cuando falla, con una arista de vuelta a `buscar_documentacion`.
