@@ -13,7 +13,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from soporte import config
-from soporte.graph import construir_grafo
+from soporte.agente.flujo import construir_grafo
 
 
 def pedir_decision(pausa: dict) -> dict:

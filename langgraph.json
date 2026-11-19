@@ -1,7 +1,7 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "soporte": "./src/soporte/graph.py:graph"
+    "soporte": "./src/soporte/agente/flujo.py:graph"
   },
   "env": ".env"
 }

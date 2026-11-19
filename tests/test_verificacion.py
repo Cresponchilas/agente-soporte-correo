@@ -2,18 +2,9 @@
 
 import pytest
 
-from soporte import kb
-from soporte.verificacion import (
-    armar_verificacion,
-    buscar_en_catalogo,
-    busqueda_exacta,
-    combinar_contexto,
-    comprobar_literal,
-    contiene,
-    extraer_codigos,
-    extraer_datos,
-    normalizar,
-)
+from soporte.conocimiento import rag
+from soporte.conocimiento.busqueda import busqueda_exacta, combinar_contexto, contiene, extraer_codigos, extraer_datos, normalizar
+from soporte.conocimiento.verificacion import armar_verificacion, buscar_en_catalogo, comprobar_literal
 
 SIN_REVISION = {"afirmaciones": [], "busquedas": []}
 
@@ -51,14 +42,14 @@ def test_normalizar_unifica_espacios_y_decimales():
 
 
 def test_busqueda_exacta_encuentra_las_piezas_y_detecta_las_que_no_existen():
-    resultado, fragmentos = busqueda_exacta("¿Tienen el SI-M18-08P y el SI-M12-06P?", kb.catalogo())
+    resultado, fragmentos = busqueda_exacta("¿Tienen el SI-M18-08P y el SI-M12-06P?", rag.catalogo())
     assert resultado["encontrados"] == {"SI-M18-08P": ["sensores-inductivos#SI-M18-08P"]}
     assert resultado["inexistentes"] == ["SI-M12-06P"]
     assert [f["fuente"] for f in fragmentos] == ["sensores-inductivos#SI-M18-08P"]
 
 
 def test_busqueda_exacta_no_encuentra_combinaciones_que_no_existen():
-    resultado, _ = busqueda_exacta("Cotícenme la VN-52-38-24D", kb.catalogo())
+    resultado, _ = busqueda_exacta("Cotícenme la VN-52-38-24D", rag.catalogo())
     assert resultado["inexistentes"] == ["VN-52-38-24D"]
 
 
@@ -74,13 +65,13 @@ def test_combinar_contexto_marca_el_origen_y_no_repite():
 
 
 def test_piso_respalda_lo_que_esta_en_lo_que_vio_el_modelo():
-    vistos = [f for f in kb.catalogo() if f["fuente"] == "sensores-inductivos#SI-M18-08P"]
-    piso = comprobar_literal("El SI-M18-08P detecta a 8 mm y cuesta USD 46.", vistos, kb.catalogo())
+    vistos = [f for f in rag.catalogo() if f["fuente"] == "sensores-inductivos#SI-M18-08P"]
+    piso = comprobar_literal("El SI-M18-08P detecta a 8 mm y cuesta USD 46.", vistos, rag.catalogo())
     assert {a["estado"] for a in piso} == {"respaldado"}
 
 
 def test_piso_bloquea_una_pieza_inventada():
-    piso = comprobar_literal("Le recomendamos el SI-M12-99P a USD 40.", [], kb.catalogo())
+    piso = comprobar_literal("Le recomendamos el SI-M12-99P a USD 40.", [], rag.catalogo())
     resultado = armar_verificacion(piso, SIN_REVISION, codigos_inexistentes=[])
     assert {a["texto"]: a["estado"] for a in piso}["SI-M12-99P"] == "no_encontrado"
     assert resultado["aprobada"] is False
@@ -88,7 +79,7 @@ def test_piso_bloquea_una_pieza_inventada():
 
 
 def test_piso_distingue_datos_reales_que_el_modelo_no_vio():
-    piso = comprobar_literal("La fuente FP-24-10 da 10 A.", [], kb.catalogo())
+    piso = comprobar_literal("La fuente FP-24-10 da 10 A.", [], rag.catalogo())
     assert {a["estado"] for a in piso} == {"fuera_de_contexto"}  # es real: se informa, no se bloquea
     assert armar_verificacion(piso, SIN_REVISION, codigos_inexistentes=[])["aprobada"] is True
 
@@ -96,7 +87,7 @@ def test_piso_distingue_datos_reales_que_el_modelo_no_vio():
 def test_el_piso_no_ve_un_dato_real_atribuido_a_otra_pieza():
     """El límite del piso, y la razón del verificador agente: los dos términos
     existen en el catálogo, pero 8 mm es del SI-M18-08P, no del SI-M12-04P."""
-    piso = comprobar_literal("El SI-M12-04P detecta a 8 mm.", [], kb.catalogo())
+    piso = comprobar_literal("El SI-M12-04P detecta a 8 mm.", [], rag.catalogo())
     assert armar_verificacion(piso, SIN_REVISION, codigos_inexistentes=[])["aprobada"] is True
 
 
@@ -104,20 +95,20 @@ def test_el_piso_no_ve_un_dato_real_atribuido_a_otra_pieza():
 
 
 def test_buscar_en_catalogo_devuelve_las_secciones_con_su_fuente():
-    resultado = buscar_en_catalogo("SI-M12-04P", kb.catalogo())
+    resultado = buscar_en_catalogo("SI-M12-04P", rag.catalogo())
     assert resultado["fuentes"][0] == "sensores-inductivos#SI-M12-04P"
     assert "[sensores-inductivos#SI-M12-04P]" in resultado["texto"]
     assert "Distancia de detección: 4 mm" in resultado["texto"]
 
 
 def test_buscar_en_catalogo_dice_cuando_no_hay_nada():
-    resultado = buscar_en_catalogo("SI-M12-06P", kb.catalogo())
+    resultado = buscar_en_catalogo("SI-M12-06P", rag.catalogo())
     assert resultado["fuentes"] == []
     assert "Sin coincidencias" in resultado["texto"]
 
 
 def test_buscar_en_catalogo_recorta_las_busquedas_muy_amplias():
-    resultado = buscar_en_catalogo("USD", kb.catalogo(), maximo=2)
+    resultado = buscar_en_catalogo("USD", rag.catalogo(), maximo=2)
     assert len(resultado["fuentes"]) > 2
     assert resultado["texto"].count("[") == 2
     assert "secciones más" in resultado["texto"]
@@ -152,7 +143,7 @@ def test_respaldada_con_evidencia_se_aprueba():
 
 
 def test_el_verificador_no_puede_quitar_lo_que_bloquea_el_piso():
-    piso = comprobar_literal("Le sirve el SI-M12-99P.", [], kb.catalogo())
+    piso = comprobar_literal("Le sirve el SI-M12-99P.", [], rag.catalogo())
     revision = {"afirmaciones": [revisada("respaldada")], "busquedas": [BUSQUEDA_04P]}
     assert armar_verificacion(piso, revision, codigos_inexistentes=[])["aprobada"] is False
 
@@ -164,6 +155,6 @@ def test_si_el_verificador_falla_decide_una_persona():
 
 
 def test_la_pieza_inexistente_que_pide_el_cliente_se_avisa_una_sola_vez():
-    piso = comprobar_literal("No encontramos el SI-M12-06P; un asesor le confirmará.", [], kb.catalogo())
+    piso = comprobar_literal("No encontramos el SI-M12-06P; un asesor le confirmará.", [], rag.catalogo())
     resultado = armar_verificacion(piso, SIN_REVISION, codigos_inexistentes=["SI-M12-06P"])
     assert resultado["motivos"] == ["El cliente pide SI-M12-06P, que no existe en el catálogo."]

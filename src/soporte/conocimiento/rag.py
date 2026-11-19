@@ -16,7 +16,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 
 from soporte import config
-from soporte.state import Fragmento
+from soporte.agente.estado import Fragmento
 
 
 def partir_markdown(ruta: Path) -> list[Document]:

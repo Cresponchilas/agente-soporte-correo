@@ -8,7 +8,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from soporte import servicios
-from soporte.graph import construir_grafo
+from soporte.agente.flujo import construir_grafo
 
 CORREO = {"remitente": " Ingenieria@IntegracionesNorte.co ", "asunto": "Duda", "cuerpo": "¿Qué alimentación tiene el SI-M18-08P?"}
 
@@ -90,14 +90,14 @@ def test_cliente_reincidente_va_a_revision(grafo, clasificacion_falsa):
 
 
 def test_busqueda_fallida_no_tumba_el_grafo(grafo, clasificacion_falsa, monkeypatch):
-    from soporte import kb
+    from soporte.conocimiento import rag
 
     clasificacion_falsa()
 
     def falla(*args, **kwargs):
         raise TimeoutError("vector store caído")
 
-    monkeypatch.setattr(kb, "buscar", falla)
+    monkeypatch.setattr(rag, "buscar", falla)
     resultado = grafo.invoke(CORREO, config())
     assert resultado["fragmentos"][0]["fuente"] == "error"
     assert resultado["enviado"] is True
@@ -129,7 +129,7 @@ def test_pieza_inexistente_pedida_por_el_cliente_va_a_revision(grafo, clasificac
 
 
 def test_pieza_inventada_por_el_modelo_va_a_revision(grafo, clasificacion_falsa, monkeypatch):
-    from soporte import llm
+    from soporte.agente import llm
 
     clasificacion_falsa(intencion="especificacion", urgencia="baja")
     monkeypatch.setattr(llm, "redactar_con_llm", lambda prompt: "Le sirve el SI-M18-09P, a USD 46.")
@@ -143,7 +143,7 @@ def test_pieza_inventada_por_el_modelo_va_a_revision(grafo, clasificacion_falsa,
 def test_dato_de_otra_pieza_lo_detecta_el_verificador_agente(grafo, clasificacion_falsa, revision_falsa, monkeypatch):
     """El piso literal no lo ve (8 mm existe, pero es del SI-M18-08P); el verificador sí,
     y el código respeta su veredicto."""
-    from soporte import llm
+    from soporte.agente import llm
 
     clasificacion_falsa(intencion="especificacion", urgencia="baja")
     monkeypatch.setattr(llm, "redactar_con_llm", lambda prompt: "El SI-M18-08P detecta a 4 mm.")
@@ -167,14 +167,14 @@ def test_dato_de_otra_pieza_lo_detecta_el_verificador_agente(grafo, clasificacio
 
 
 def test_si_el_verificador_falla_va_a_revision(grafo, clasificacion_falsa, monkeypatch):
-    from soporte import llm
+    from soporte.agente import verificador
 
     clasificacion_falsa(intencion="especificacion", urgencia="baja")
 
     def falla(cuerpo, borrador):
         raise TimeoutError("el modelo no respondió")
 
-    monkeypatch.setattr(llm, "verificar_con_llm", falla)
+    monkeypatch.setattr(verificador, "revisar", falla)
     resultado = grafo.invoke(CORREO, config())
 
     assert "__interrupt__" in resultado  # falla de forma segura: no se envía sin verificar

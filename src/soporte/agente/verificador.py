@@ -1,7 +1,8 @@
-"""Las llamadas al LLM del proyecto: clasificar, redactar y verificar.
+"""El verificador agente: un segundo LLM que revisa el borrador antes de enviarlo.
 
-Están aisladas en funciones pequeñas para poder reemplazarlas en los tests
-(monkeypatch) y probar el grafo sin gastar tokens.
+Elige qué afirmaciones comprobar y las busca en el catálogo con una herramienta
+determinista. Lo que devuelve es solo una opinión: las reglas que la juzgan y la
+decisión final están en conocimiento/verificacion.py y en el nodo verificar_respuesta.
 """
 
 import logging
@@ -10,9 +11,11 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from langchain_core.tools import tool
 from langsmith import traceable
 
-from soporte import config, kb, prompts, verificacion
-from soporte.state import Clasificacion, EntregarVeredicto
-from soporte.verificacion import Busqueda, RevisionDelVerificador
+from soporte import config
+from soporte.agente import prompts
+from soporte.agente.estado import EntregarVeredicto
+from soporte.conocimiento import rag, verificacion
+from soporte.conocimiento.verificacion import Busqueda, RevisionDelVerificador
 
 logger = logging.getLogger(__name__)
 
@@ -25,37 +28,23 @@ class VerificadorSinVeredicto(RuntimeError):
     """El verificador agotó sus vueltas sin entregar un veredicto."""
 
 
-def clasificar_con_llm(remitente: str, asunto: str, cuerpo: str) -> Clasificacion:
-    # with_structured_output liga el esquema Pydantic al modelo y valida la salida:
-    # el resultado ya es un objeto Clasificacion, no texto que haya que parsear.
-    modelo = config.modelo_chat().with_structured_output(Clasificacion)
-    return modelo.invoke(prompts.CLASIFICAR.format(remitente=remitente, asunto=asunto, cuerpo=cuerpo))
-
-
-def redactar_con_llm(prompt: str) -> str:
-    return config.modelo_chat().invoke(prompt).content
-
-
-# ---------- Verificador agente ----------
-
-
 @tool
 def buscar_en_catalogo(termino: str) -> str:
     """Busca un texto literal en el catálogo de Andina Automatización (como grep) y devuelve
     las secciones que lo contienen, cada una con su fuente entre corchetes. Usa términos
     cortos y distintivos: un número de pieza (SI-M12-04P) o una palabra clave (garantía)."""
-    return verificacion.buscar_en_catalogo(termino, kb.catalogo())["texto"]
+    return verificacion.buscar_en_catalogo(termino, rag.catalogo())["texto"]
 
 
 @traceable(run_type="tool", name="buscar_en_catalogo")
 def _ejecutar_busqueda(termino: str) -> Busqueda:
     # Se ejecuta aquí y no con buscar_en_catalogo.invoke() para guardar también las
     # fuentes encontradas: con ellas el código valida después lo que cite el modelo.
-    return verificacion.buscar_en_catalogo(termino, kb.catalogo())
+    return verificacion.buscar_en_catalogo(termino, rag.catalogo())
 
 
 @traceable(run_type="chain", name="verificador_agente")
-def verificar_con_llm(cuerpo: str, borrador: str) -> RevisionDelVerificador:
+def revisar(cuerpo: str, borrador: str) -> RevisionDelVerificador:
     """Un agente pequeño: un loop de herramientas con tope de vueltas.
 
     En cada vuelta el modelo TIENE que llamar una herramienta (tool_choice="any"):

@@ -1,8 +1,9 @@
-from soporte import config, kb
+from soporte import config
+from soporte.conocimiento import rag
 
 
 def test_cada_seccion_es_un_fragmento_con_fuente():
-    documentos = kb.cargar_documentos(config.CARPETA_KB)
+    documentos = rag.cargar_documentos(config.CARPETA_KB)
     fuentes = [d.metadata["fuente"] for d in documentos]
 
     assert "sensores-inductivos#SI-M12-04P" in fuentes
@@ -11,6 +12,6 @@ def test_cada_seccion_es_un_fragmento_con_fuente():
 
 
 def test_buscar_devuelve_k_fragmentos():
-    fragmentos = kb.buscar("sensor inductivo de 4 mm", k=2)
+    fragmentos = rag.buscar("sensor inductivo de 4 mm", k=2)
     assert len(fragmentos) == 2
     assert set(fragmentos[0]) == {"fuente", "texto"}
