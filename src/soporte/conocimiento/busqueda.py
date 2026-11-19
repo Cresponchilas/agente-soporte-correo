@@ -32,6 +32,7 @@ _PRECIO_SUELTO = re.compile(r"(?:US\$|\$)\s?(\d+(?:[.,]\d+)?)|(\d+(?:[.,]\d+)?)\
 class ResultadoBusquedaExacta(TypedDict):
     codigos: list[str]
     encontrados: dict[str, list[str]]  # código -> fuentes donde aparece
+    externos: list[str]  # no están en el catálogo, pero se conocen (piezas de otras marcas)
     inexistentes: list[str]
 
 
@@ -79,35 +80,47 @@ def extraer_datos(texto: str) -> list[str]:
 # ---------- Búsqueda exacta de los códigos del correo ----------
 
 
-def busqueda_exacta(correo: str, catalogo: list[Fragmento]) -> tuple[ResultadoBusquedaExacta, list[Fragmento]]:
+def busqueda_exacta(
+    correo: str, catalogo: list[Fragmento], conocidos: set[str] = frozenset()
+) -> tuple[ResultadoBusquedaExacta, list[Fragmento]]:
     """Busca literalmente en el catálogo cada número de pieza del correo del cliente.
-    Devuelve el resumen de la búsqueda y las secciones encontradas."""
+    Devuelve el resumen de la búsqueda y las secciones encontradas.
+
+    `conocidos` son códigos que no están en el catálogo pero sí se conocen (las piezas
+    de otras marcas del grafo de equivalencias): esos no cuentan como inexistentes."""
     codigos = extraer_codigos(correo)
     encontrados = {codigo: buscar_en(catalogo, codigo) for codigo in codigos}
     fuentes = {fuente for lista in encontrados.values() for fuente in lista}
+    no_estan = [codigo for codigo, lista in encontrados.items() if not lista]
     resultado = ResultadoBusquedaExacta(
         codigos=codigos,
         encontrados={codigo: lista for codigo, lista in encontrados.items() if lista},
-        inexistentes=[codigo for codigo, lista in encontrados.items() if not lista],
+        externos=[codigo for codigo in no_estan if codigo in conocidos],
+        inexistentes=[codigo for codigo in no_estan if codigo not in conocidos],
     )
     return resultado, [f for f in catalogo if f["fuente"] in fuentes]
 
 
 def combinar_contexto(
-    vectorial: list[Fragmento], exacta: list[Fragmento], inventario: list[Fragmento] = ()
+    vectorial: list[Fragmento],
+    exacta: list[Fragmento],
+    inventario: list[Fragmento] = (),
+    grafo: list[Fragmento] = (),
 ) -> list[Fragmento]:
     """Une lo que encontró cada fuente sin repetir y marca de dónde salió cada
-    fragmento. Primero lo seguro: la búsqueda exacta y el inventario."""
+    fragmento. Primero lo seguro: búsqueda exacta, grafo e inventario."""
     fuentes_vectorial = {f["fuente"] for f in vectorial}
     fuentes_exacta = {f["fuente"] for f in exacta}
     combinados: dict[str, Fragmento] = {}
-    for fragmento in [*exacta, *inventario, *vectorial]:
+    for fragmento in [*exacta, *grafo, *inventario, *vectorial]:
         fuente = fragmento["fuente"]
         if fuente in combinados:
             continue
         en_ambas = fuente in fuentes_vectorial and fuente in fuentes_exacta
         if fuente.startswith("inventario#"):
             origen = "inventario"
+        elif fuente.startswith("grafo#"):
+            origen = "grafo"
         else:
             origen = "ambas" if en_ambas else "exacta" if fuente in fuentes_exacta else "vectorial"
         combinados[fuente] = {**fragmento, "origen": origen}

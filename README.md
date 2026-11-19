@@ -10,6 +10,7 @@ automatización industrial (sensores, válvulas neumáticas, fuentes de poder), 
 2. **Junta contexto en paralelo:**
    - **búsqueda vectorial** (RAG) en el catálogo;
    - **búsqueda exacta**: cada número de pieza del correo se busca literalmente en el catálogo (como `grep`);
+   - **grafo de equivalencias**: sustitutos de piezas de otras marcas o descontinuadas, accesorios y fuentes;
    - consulta el historial del cliente;
    - abre un caso si es una garantía o la línea del cliente está parada.
 3. **Consulta precio y stock en SQL** de las piezas del caso: esos datos no están en el RAG.
@@ -116,6 +117,46 @@ La base (`data/inventario.sqlite`) se crea sola la primera vez. Para recargarla,
 nuevo: `python -m soporte.datos.inventario`. En producción eso lo haría un proceso programado o la llegada
 del correo del cliente.
 
+## El grafo de equivalencias (un grafo de conocimiento)
+
+Hay preguntas cuya respuesta está repartida en varios documentos, y la búsqueda vectorial no las resuelve bien:
+
+```
+"Tengo un Proxima PX-12-4P, ¿qué fuente necesito para su reemplazo?"
+
+PX-12-4P --sustituible_por--> SI-M12-04P <--puede_alimentar-- FP-24-5
+```
+
+`conocimiento/grafo_de_equivalencias.py` guarda las piezas como nodos y sus relaciones como aristas, en un JSON
+(`data/grafo/grafo.json`). No confundir con el grafo de LangGraph (`agente/flujo.py`), que es el flujo de control.
+
+| Relación | Origen | Cómo se obtiene |
+|---|---|---|
+| `reemplazado_por` | Documento | `data/grafo/relaciones.json`: una pieza descontinuada y su reemplazo, según el catálogo |
+| `requiere` | Documento | Accesorios obligatorios, como el reflector RF-50 del SF-R2M-P |
+| `sustituible_por` | **Regla** | Calculada desde `data/grafo/especificaciones.csv`: misma familia, tamaño, distancia, salida y conexión, y un rango de alimentación que cubre el original |
+| `puede_alimentar` | **Regla** | La tensión de salida de la fuente cae dentro del rango del sensor |
+
+Las equivalencias **las calcula una regla, no un LLM**: o las medidas coinciden, o no hay arista. La regla es
+dirigida (un sensor de 10 a 30 VDC sustituye a uno de 12 a 24 VDC, pero no al revés) y solo ofrece piezas activas
+que el distribuidor vende. Si ninguna coincide, el grafo lo dice y el agente no inventa un sustituto.
+
+El nodo `consultar_grafo` recorre el grafo desde cada pieza del correo, acotado: hasta 2 saltos de sustitución y,
+para cada pieza propia en ese camino, sus accesorios y fuentes. Las piezas que encuentra pasan al inventario, así
+que el agente puede dar el precio y el stock del sustituto. Un código de otra marca que está en el grafo ya no se
+reporta como "pieza inexistente".
+
+**Por qué un JSON y no Neo4j:** son 16 piezas y 26 relaciones; un JSON se lee, se versiona en git y corre sin
+servicios extra. Si creciera a miles de piezas, el siguiente paso sería Neo4j, y la consulta del ejemplo sería:
+
+```cypher
+MATCH (p:Pieza {codigo: 'PX-12-4P'})-[:SUSTITUIBLE_POR]->(s)<-[:PUEDE_ALIMENTAR]-(f)
+RETURN s.codigo, f.codigo
+```
+
+Para regenerar el JSON después de editar las especificaciones o las relaciones:
+`python -m soporte.conocimiento.grafo_de_equivalencias`. Un test falla si el JSON quedó desactualizado.
+
 ## El grafo
 
 ```mermaid
@@ -123,10 +164,12 @@ graph TD
     START([START]) --> recibir_correo --> clasificar
     clasificar -.-> buscar_documentacion
     clasificar -.-> busqueda_exacta
+    clasificar -.-> consultar_grafo
     clasificar -.-> consultar_historial
     clasificar -.-> crear_ticket
     buscar_documentacion --> consultar_inventario
     busqueda_exacta --> consultar_inventario
+    consultar_grafo --> consultar_inventario
     consultar_historial --> consultar_inventario
     crear_ticket --> consultar_inventario
     consultar_inventario --> redactar_respuesta
@@ -146,6 +189,7 @@ Las líneas punteadas son rutas condicionales.
 | Salida estructurada (Pydantic) | `agente/llm.py`, `clasificar_con_llm` |
 | RAG: fragmentar, hacer embeddings y buscar | `conocimiento/rag.py` |
 | Búsqueda exacta (el "grep") | `conocimiento/busqueda.py`, nodo `busqueda_exacta` |
+| Grafo de conocimiento: aristas calculadas por regla, recorrido acotado | `conocimiento/grafo_de_equivalencias.py`, nodo `consultar_grafo` |
 | SQL: tablas con reglas, transacciones, consultas con parámetros | `datos/inventario.py`, `tests/test_inventario.py` |
 | Leer una tabla de un PDF | `datos/inventario.leer_stock_pdf` |
 | Verificación: piso literal y reglas que juzgan al verificador | `conocimiento/verificacion.py`, nodo `verificar_respuesta` |
@@ -173,7 +217,8 @@ src/soporte/
 ├── conocimiento/          de dónde saca el agente lo que sabe
 │   ├── rag.py             búsqueda vectorial sobre data/kb
 │   ├── busqueda.py        búsqueda literal y búsqueda exacta de códigos
-│   ├── fuentes.py         las fuentes de verdad para verificar: catálogo + inventario
+│   ├── grafo_de_equivalencias.py   el grafo de conocimiento: sustitutos, accesorios, fuentes
+│   ├── fuentes.py         las fuentes de verdad para verificar: catálogo + inventario + grafo
 │   └── verificacion.py    piso literal y reglas que juzgan al verificador
 ├── datos/                 datos estructurados del negocio
 │   └── inventario.py      precios y stock en SQLite, cargados desde CSV y PDF
@@ -199,7 +244,7 @@ cp .env.example .env               # llena OPENAI_API_KEY y LANGSMITH_API_KEY
 python -m soporte.api              # dashboard en http://localhost:8000 y API en /docs (abre el navegador)
 pytest                             # tests del backend, sin llaves y sin gastar tokens (LLM falso)
 node --test tests/js/logica.test.mjs   # opcional, si tienes Node: tests de la lógica del dashboard
-python scripts/demo.py             # procesa los 8 correos de ejemplo y te pide aprobar en consola
+python scripts/demo.py             # procesa los 9 correos de ejemplo y te pide aprobar en consola
 python scripts/demo.py 4           # solo el correo #4 (línea parada, pide revisión)
 langgraph dev --allow-blocking     # abre LangGraph Studio con el grafo
 python evals/run_evals.py          # crea el dataset en LangSmith y corre el experimento
@@ -248,7 +293,7 @@ Cómo falla de forma controlada:
 
 ## Costo
 
-Por defecto se usa `gpt-4.1-mini` y `text-embedding-3-small`; los dos se cambian en `.env`. Con los precios publicados por OpenAI (revísalos antes de usar), un correo cuesta del orden de **un décimo de centavo de dólar**: clasificar, redactar y dos o tres vueltas del verificador. Una corrida completa de evals (8 correos más el juez) cuesta unos **2 centavos**. Configura un límite de gasto en el panel de OpenAI.
+Por defecto se usa `gpt-4.1-mini` y `text-embedding-3-small`; los dos se cambian en `.env`. Con los precios publicados por OpenAI (revísalos antes de usar), un correo cuesta del orden de **un décimo de centavo de dólar**: clasificar, redactar y dos o tres vueltas del verificador. Una corrida completa de evals (9 correos más el juez) cuesta unos **2 centavos**. Configura un límite de gasto en el panel de OpenAI.
 
 ## Decisiones de diseño
 
@@ -289,6 +334,8 @@ En PRs apilados; cada uno parte del anterior y deja los tests en verde:
     topes de llamadas y de búsquedas, y un `wrap_model_call` propio que exige leer antes de entregar el veredicto.
 14. `pr/14-precios-y-stock-en-sql`: precio y stock salen del RAG y pasan a SQLite, cargados desde la lista de precios
     (CSV) y el PDF de stock diario, con validación, transacciones y consultas con parámetros.
+15. `pr/15-grafo-de-equivalencias`: un grafo de conocimiento en JSON con sustitutos, accesorios y fuentes; las
+    equivalencias se calculan con una regla desde las especificaciones, y un nodo nuevo lo recorre en paralelo.
 ## Siguientes pasos
 
 - Reintento de la búsqueda cuando falla, con una arista de vuelta a `buscar_documentacion`.

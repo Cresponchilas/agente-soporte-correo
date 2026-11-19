@@ -23,7 +23,8 @@ from pydantic import BaseModel, Field
 from soporte import config
 from soporte.agente.flujo import construir_grafo
 
-NOMBRE_DATASET = "agente-soporte-correo"
+# v2: 9 casos (se agregó la pieza de otra marca). Un nombre nuevo crea el dataset de nuevo.
+NOMBRE_DATASET = "agente-soporte-correo-v2"
 
 
 @lru_cache

@@ -9,13 +9,14 @@ el orden en que corren. No es un grafo de conocimiento (datos y relaciones).
                |
            clasificar
       /     |       |       \\          <- arista condicional que devuelve una lista: ramas en paralelo
- vectorial exacta historial  ticket     (búsqueda vectorial, búsqueda exacta tipo grep, CRM, caso)
+ vectorial exacta grafo historial ticket   (vectorial, búsqueda exacta tipo grep, grafo de
+                                          equivalencias, CRM, caso)
       \\     |       |       /
       consultar_inventario             <- precio y stock desde SQL (la fuente de verdad)
                |
        redactar_respuesta              <- el LLM redacta con todo combinado
                |
-      verificar_respuesta              <- piso literal + verificador agente contra catálogo e inventario
+      verificar_respuesta              <- piso literal + verificador agente contra catálogo, inventario y grafo
           /          \\                  (Command: revisión humana o envío directo)
  revision_humana --> enviar_respuesta --> END
    (interrupt)  \\--> END (rechazado)
@@ -39,6 +40,7 @@ def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
     builder.add_node("consultar_historial", nodos.consultar_historial)
     builder.add_node("crear_ticket", nodos.crear_ticket)
     builder.add_node("busqueda_exacta", nodos.busqueda_exacta)
+    builder.add_node("consultar_grafo", nodos.consultar_grafo)
     builder.add_node("consultar_inventario", nodos.consultar_inventario)
     builder.add_node("redactar_respuesta", nodos.redactar_respuesta)
     builder.add_node("verificar_respuesta", nodos.verificar_respuesta)

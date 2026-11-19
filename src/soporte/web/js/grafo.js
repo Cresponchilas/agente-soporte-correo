@@ -6,6 +6,7 @@ export const NOMBRES = {
   clasificar: "Clasificar",
   buscar_documentacion: "Búsqueda vectorial",
   busqueda_exacta: "Búsqueda exacta",
+  consultar_grafo: "Grafo de equivalencias",
   consultar_inventario: "Precio y stock (SQL)",
   consultar_historial: "Consultar historial",
   crear_ticket: "Abrir caso",
@@ -18,6 +19,7 @@ export const NOMBRES = {
 const NOMBRES_CORTOS = {
   buscar_documentacion: "Vectorial",
   busqueda_exacta: "Exacta",
+  consultar_grafo: "Grafo",
   consultar_historial: "Historial",
   crear_ticket: "Caso",
 };
@@ -26,7 +28,7 @@ const NOMBRES_CORTOS = {
 export const FILAS = [
   ["recibir_correo"],
   ["clasificar"],
-  ["buscar_documentacion", "busqueda_exacta", "consultar_historial", "crear_ticket"],
+  ["buscar_documentacion", "busqueda_exacta", "consultar_grafo", "consultar_historial", "crear_ticket"],
   ["consultar_inventario"],
   ["redactar_respuesta"],
   ["verificar_respuesta"],
