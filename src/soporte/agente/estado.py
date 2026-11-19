@@ -85,6 +85,8 @@ class EstadoCorreo(TypedDict, total=False):
     piezas_relacionadas: list[str]  # sustitutos, accesorios y fuentes que encontró el grafo
     contexto: list[Fragmento]  # lo que de verdad vio el modelo: las dos búsquedas combinadas
     historial_cliente: dict
+    memoria_cliente: dict  # lo que se recordaba del cliente AL EMPEZAR (Store): piezas y preferencias
+    memoria_actualizada: dict  # lo que quedó guardado al terminar, si se envió la respuesta
     ticket_id: str | None
 
     # Salida

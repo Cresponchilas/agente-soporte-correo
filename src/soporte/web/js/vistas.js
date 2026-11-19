@@ -150,7 +150,7 @@ export function vistaResultado({ corrida, caso, destinatario }) {
       <h3>Contexto que reunió</h3>
       ${
         fragmentos || historial_cliente
-          ? `<p class="resultado__linea">${ticket_id ? `Caso abierto: ${esc(ticket_id)}.` : "Sin caso abierto."} ${esc(historialEnTexto(historial_cliente))}</p>
+          ? `<p class="resultado__linea">${ticket_id ? `Caso abierto: ${esc(ticket_id)}.` : "Sin caso abierto."} ${esc(historialEnTexto(historial_cliente))} ${esc(memoriaEnTexto(estado.memoria_cliente))}</p>
              ${vistaBusquedaExacta(estado.busqueda_exacta)}
              ${fragmentos ? vistaFuentes(fragmentos) : ""}`
           : pendiente
@@ -277,6 +277,13 @@ function vistaFuentes(fragmentos) {
   return `<ul class="fuentes">${items}</ul>`;
 }
 
+function memoriaEnTexto(memoria) {
+  const piezas = Object.entries(memoria?.piezas ?? {});
+  if (!piezas.length) return "Sin consultas anteriores en la memoria.";
+  const salida = memoria?.preferencias?.salida;
+  return `Memoria: antes consultó ${piezas.map(([codigo, veces]) => `${codigo} (${veces})`).join(", ")}${salida ? `; suele pedir salida ${salida}` : ""}.`;
+}
+
 function historialEnTexto(historial) {
   if (!historial) return "";
   const nombre = typeof historial.nombre === "string" ? historial.nombre : "Cliente nuevo";
@@ -377,8 +384,17 @@ function resumirActualizacion(nodo, a) {
       const fragmentos = a.fragmentos ?? [];
       return `${fragmentos.length} fragmentos: ${fragmentos.map((f) => f.fuente.split("#")[1] ?? f.fuente).join(", ")}`;
     }
-    case "consultar_historial":
-      return contactosPrevios(a.historial_cliente?.contactos_previos ?? 0);
+    case "consultar_historial": {
+      const piezas = Object.keys(a.memoria_cliente?.piezas ?? {});
+      const recuerdo = piezas.length ? `; recuerda ${piezas.join(", ")}` : "; sin recuerdos de este cliente";
+      return contactosPrevios(a.historial_cliente?.contactos_previos ?? 0) + recuerdo;
+    }
+    case "recordar": {
+      const piezas = Object.keys(a.memoria_actualizada?.piezas ?? {});
+      if (!piezas.length) return "Nada nuevo que recordar";
+      const salida = a.memoria_actualizada?.preferencias?.salida;
+      return `Recuerda ${piezas.join(", ")}${salida ? `; suele pedir salida ${salida}` : ""}`;
+    }
     case "crear_ticket":
       return `Caso ${a.ticket_id}`;
     case "busqueda_exacta": {

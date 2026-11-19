@@ -33,6 +33,8 @@ def cliente() -> Client:
     return Client()
 
 
+# Sin Store: cada caso del dataset se evalúa sin recuerdos de los anteriores, para que
+# el resultado no dependa del orden en que corren.
 grafo = construir_grafo(checkpointer=InMemorySaver())
 
 

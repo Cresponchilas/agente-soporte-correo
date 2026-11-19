@@ -14,3 +14,6 @@ data/checkpoints.sqlite*
 
 # La base de inventario se genera desde data/inventario/ (python -m soporte.datos.inventario)
 data/inventario.sqlite*
+
+# Memoria de largo plazo (Store), junto a los checkpoints
+data/memoria.sqlite*

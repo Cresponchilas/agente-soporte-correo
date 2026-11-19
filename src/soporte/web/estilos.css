@@ -710,6 +710,16 @@ textarea {
   transition: border-color 0.2s, background-color 0.2s;
 }
 
+/* Una fila con muchas ramas en paralelo: cajas más compactas para que quepan los nombres. */
+.mapa__fila:has(> :nth-child(5)) {
+  gap: 4px;
+}
+
+.mapa__fila:has(> :nth-child(5)) .mapa__nodo {
+  padding: 6px 5px;
+  font-size: 0.76rem;
+}
+
 .mapa__nombre {
   font-weight: 500;
   overflow: hidden;

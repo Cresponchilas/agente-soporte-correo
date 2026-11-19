@@ -5,9 +5,10 @@ import logging
 from typing import Literal
 
 from langgraph.graph import END
+from langgraph.runtime import Runtime
 from langgraph.types import Command, interrupt
 
-from soporte import servicios
+from soporte import memoria, servicios
 from soporte.agente import llm, prompts, verificador
 from soporte.agente.estado import EstadoCorreo, Fragmento
 from soporte.conocimiento import busqueda, fuentes, grafo_de_equivalencias, rag, verificacion
@@ -88,8 +89,15 @@ def texto_del_correo(estado: EstadoCorreo) -> str:
     return f"{estado.get('asunto', '')}\n{estado['cuerpo']}"
 
 
-def consultar_historial(estado: EstadoCorreo) -> dict:
-    return {"historial_cliente": servicios.historial_de(estado["remitente"]), "pasos": ["consultar_historial"]}
+def consultar_historial(estado: EstadoCorreo, runtime: Runtime) -> dict:
+    """Dos fuentes sobre el cliente: el CRM (servicios.historial_de) y la memoria de
+    largo plazo (el Store), con lo que pidió en correos anteriores. LangGraph le pasa
+    `runtime` al nodo porque lo pide en su firma; runtime.store es el Store del grafo."""
+    return {
+        "historial_cliente": servicios.historial_de(estado["remitente"]),
+        "memoria_cliente": memoria.leer(runtime.store, estado["remitente"]),
+        "pasos": ["consultar_historial"],
+    }
 
 
 def crear_ticket(estado: EstadoCorreo) -> dict:
@@ -143,7 +151,9 @@ def redactar_respuesta(estado: EstadoCorreo) -> dict:
     prompt = prompts.REDACTAR.format(
         nombre=historial.get("nombre", "cliente"),
         remitente=estado["remitente"],
-        historial=historial.get("nota", f"{historial.get('contactos_previos', 0)} contactos previos"),
+        historial=historial.get("nota", f"{historial.get('contactos_previos', 0)} contactos previos")
+        + " "
+        + memoria.como_texto(estado.get("memoria_cliente", {})),
         intencion=c["intencion"],
         urgencia=c["urgencia"],
         ticket=estado.get("ticket_id") or "no aplica",
@@ -226,3 +236,14 @@ def enviar_respuesta(estado: EstadoCorreo) -> dict:
     asunto = f"Re: {estado.get('asunto') or 'Tu solicitud'}"
     servicios.enviar_correo(estado["remitente"], asunto, estado["borrador"])
     return {"enviado": True, "pasos": ["enviar_respuesta"]}
+
+
+def recordar(estado: EstadoCorreo, runtime: Runtime) -> dict:
+    """Guarda en la memoria de largo plazo las piezas de este correo. Corre DESPUÉS de
+    enviar (directo o aprobado): una respuesta rechazada termina antes y no deja
+    recuerdos. Solo se guardan piezas que existen (del catálogo o del grafo)."""
+    exacta = estado.get("busqueda_exacta", {})
+    codigos = list(exacta.get("encontrados", {})) + exacta.get("externos", [])
+    if runtime.store is None or not codigos:
+        return {"pasos": ["recordar"]}
+    return {"memoria_actualizada": memoria.recordar(runtime.store, estado["remitente"], codigos), "pasos": ["recordar"]}

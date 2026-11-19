@@ -122,6 +122,11 @@ def puede_alimentar(fuente: dict, sensor: dict) -> str | None:
     return None
 
 
+@lru_cache
+def especificaciones() -> list[dict]:
+    return leer_especificaciones(CARPETA / "especificaciones.csv")
+
+
 def construir(carpeta: Path = CARPETA) -> Grafo:
     especificaciones = leer_especificaciones(carpeta / "especificaciones.csv")
     documentadas = json.loads((carpeta / "relaciones.json").read_text(encoding="utf-8"))["relaciones"]
