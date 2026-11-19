@@ -80,6 +80,7 @@ class EstadoCorreo(TypedDict, total=False):
     fragmentos: list[Fragmento]  # búsqueda vectorial (RAG)
     busqueda_exacta: dict  # números de pieza del correo buscados literalmente en el catálogo
     fragmentos_exactos: list[Fragmento]
+    fragmentos_inventario: list[Fragmento]  # precio y stock desde SQL
     contexto: list[Fragmento]  # lo que de verdad vio el modelo: las dos búsquedas combinadas
     historial_cliente: dict
     ticket_id: str | None

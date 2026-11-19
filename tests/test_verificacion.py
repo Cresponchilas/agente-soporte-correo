@@ -2,7 +2,7 @@
 
 import pytest
 
-from soporte.conocimiento import rag
+from soporte.conocimiento import fuentes, rag
 from soporte.conocimiento.busqueda import busqueda_exacta, combinar_contexto, contiene, extraer_codigos, extraer_datos, normalizar
 from soporte.conocimiento.verificacion import armar_verificacion, buscar_en_catalogo, comprobar_literal
 
@@ -65,13 +65,13 @@ def test_combinar_contexto_marca_el_origen_y_no_repite():
 
 
 def test_piso_respalda_lo_que_esta_en_lo_que_vio_el_modelo():
-    vistos = [f for f in rag.catalogo() if f["fuente"] == "sensores-inductivos#SI-M18-08P"]
-    piso = comprobar_literal("El SI-M18-08P detecta a 8 mm y cuesta USD 46.", vistos, rag.catalogo())
+    vistos = [f for f in fuentes.todas() if f["fuente"] in ("sensores-inductivos#SI-M18-08P", "inventario#SI-M18-08P")]
+    piso = comprobar_literal("El SI-M18-08P detecta a 8 mm y cuesta USD 46.", vistos, fuentes.todas())
     assert {a["estado"] for a in piso} == {"respaldado"}
 
 
 def test_piso_bloquea_una_pieza_inventada():
-    piso = comprobar_literal("Le recomendamos el SI-M12-99P a USD 40.", [], rag.catalogo())
+    piso = comprobar_literal("Le recomendamos el SI-M12-99P a USD 40.", [], fuentes.todas())
     resultado = armar_verificacion(piso, SIN_REVISION, codigos_inexistentes=[])
     assert {a["texto"]: a["estado"] for a in piso}["SI-M12-99P"] == "no_encontrado"
     assert resultado["aprobada"] is False
@@ -108,7 +108,7 @@ def test_buscar_en_catalogo_dice_cuando_no_hay_nada():
 
 
 def test_buscar_en_catalogo_recorta_las_busquedas_muy_amplias():
-    resultado = buscar_en_catalogo("USD", rag.catalogo(), maximo=2)
+    resultado = buscar_en_catalogo("USD", fuentes.todas(), maximo=2)
     assert len(resultado["fuentes"]) > 2
     assert resultado["texto"].count("[") == 2
     assert "secciones más" in resultado["texto"]
@@ -158,3 +158,18 @@ def test_la_pieza_inexistente_que_pide_el_cliente_se_avisa_una_sola_vez():
     piso = comprobar_literal("No encontramos el SI-M12-06P; un asesor le confirmará.", [], rag.catalogo())
     resultado = armar_verificacion(piso, SIN_REVISION, codigos_inexistentes=["SI-M12-06P"])
     assert resultado["motivos"] == ["El cliente pide SI-M12-06P, que no existe en el catálogo."]
+
+
+def test_el_piso_no_bloquea_repetir_un_dato_que_dio_el_cliente():
+    piso = comprobar_literal(
+        "Las 25 unidades del SI-M12-04P se piden a fábrica.", [], fuentes.todas(), correo="Necesito 25 unidades del SI-M12-04P."
+    )
+    estados = {a["texto"]: a["estado"] for a in piso}
+    assert estados["25 unidades"] == "del_correo"
+    assert armar_verificacion(piso, SIN_REVISION, codigos_inexistentes=[])["aprobada"] is True
+
+
+def test_el_piso_bloquea_un_stock_que_no_esta_en_el_inventario():
+    # Medellín tiene 12 unidades del SI-M12-04P; "40 unidades" no aparece en ninguna fuente.
+    piso = comprobar_literal("Tenemos 40 unidades del SI-M12-04P en Medellín.", [], fuentes.todas(), correo="¿Tienen stock?")
+    assert {a["texto"]: a["estado"] for a in piso}["40 unidades"] == "no_encontrado"

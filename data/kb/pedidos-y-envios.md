@@ -3,7 +3,7 @@
 ## Tiempos de envío
 - Medellín: entrega el mismo día si el pedido se confirma antes de las 2:00 p. m.
 - Resto de Colombia: 2 a 4 días hábiles.
-- Los productos "a pedido" suman el tiempo de entrega indicado en su ficha.
+- Los productos sin stock se piden a fábrica y suman el plazo de entrega que indica el inventario.
 
 ## Pedidos urgentes por línea parada
 Si la línea de producción del cliente está detenida, el pedido se despacha con prioridad el mismo día, con un recargo de USD 25. Estos casos los revisa siempre una persona del equipo comercial.

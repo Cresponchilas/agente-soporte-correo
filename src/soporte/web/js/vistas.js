@@ -204,11 +204,12 @@ function vistaComparacion(caso, resumen) {
   </table>`;
 }
 
-const ORIGENES = { exacta: "búsqueda exacta", vectorial: "búsqueda vectorial", ambas: "ambas búsquedas" };
+const ORIGENES = { exacta: "búsqueda exacta", vectorial: "búsqueda vectorial", ambas: "ambas búsquedas", inventario: "inventario (SQL)" };
 
 const ESTADOS_AFIRMACION = {
   respaldado: { marca: "✓", texto: "en lo que vio el modelo" },
   fuera_de_contexto: { marca: "≈", texto: "existe en el catálogo, pero el modelo no lo vio" },
+  del_correo: { marca: "↩", texto: "lo escribió el cliente" },
   no_encontrado: { marca: "✗", texto: "no aparece en el catálogo" },
 };
 
@@ -268,7 +269,7 @@ function vistaAgente({ revisadas = [], busquedas = [], error = null }) {
 function vistaFuentes(fragmentos) {
   const items = fragmentos
     .map(
-      (f) => `<li><details><summary>${f.fuente === "error" ? "La búsqueda falló" : esc(f.fuente.replace("#", ", sección "))}${f.origen ? ` <span class="origen" data-origen="${esc(f.origen)}">${ORIGENES[f.origen] ?? esc(f.origen)}</span>` : ""}</summary><p>${esc(f.texto)}</p></details></li>`,
+      (f) => `<li><details><summary>${f.fuente.startsWith("error") ? "Una fuente falló" : esc(f.fuente.replace("#", ", sección "))}${f.origen ? ` <span class="origen" data-origen="${esc(f.origen)}">${ORIGENES[f.origen] ?? esc(f.origen)}</span>` : ""}</summary><p>${esc(f.texto)}</p></details></li>`,
     )
     .join("");
   return `<ul class="fuentes">${items}</ul>`;
@@ -386,6 +387,11 @@ function resumirActualizacion(nodo, a) {
         encontrados.length ? `Encontrados: ${encontrados.join(", ")}` : "",
         b.inexistentes.length ? `No existen: ${b.inexistentes.join(", ")}` : "",
       ].filter(Boolean).join(". ");
+    }
+    case "consultar_inventario": {
+      const fragmentos = a.fragmentos_inventario ?? [];
+      if (fragmentos.some((f) => f.fuente.startsWith("error"))) return "El inventario no respondió";
+      return fragmentos.length ? `Precio y stock de ${fragmentos.map((f) => f.fuente.split("#")[1]).join(", ")}` : "Sin piezas que consultar";
     }
     case "verificar_respuesta": {
       const v = a.verificacion;

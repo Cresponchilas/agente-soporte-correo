@@ -11,9 +11,11 @@ el orden en que corren. No es un grafo de conocimiento (datos y relaciones).
       /     |       |       \\          <- arista condicional que devuelve una lista: ramas en paralelo
  vectorial exacta historial  ticket     (búsqueda vectorial, búsqueda exacta tipo grep, CRM, caso)
       \\     |       |       /
-       redactar_respuesta              <- el LLM redacta con las dos búsquedas combinadas
+      consultar_inventario             <- precio y stock desde SQL (la fuente de verdad)
                |
-      verificar_respuesta              <- sin LLM: lo que dice el borrador ¿existe en el catálogo?
+       redactar_respuesta              <- el LLM redacta con todo combinado
+               |
+      verificar_respuesta              <- piso literal + verificador agente contra catálogo e inventario
           /          \\                  (Command: revisión humana o envío directo)
  revision_humana --> enviar_respuesta --> END
    (interrupt)  \\--> END (rechazado)
@@ -37,6 +39,7 @@ def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
     builder.add_node("consultar_historial", nodos.consultar_historial)
     builder.add_node("crear_ticket", nodos.crear_ticket)
     builder.add_node("busqueda_exacta", nodos.busqueda_exacta)
+    builder.add_node("consultar_inventario", nodos.consultar_inventario)
     builder.add_node("redactar_respuesta", nodos.redactar_respuesta)
     builder.add_node("verificar_respuesta", nodos.verificar_respuesta)
     builder.add_node("revision_humana", nodos.revision_humana)
@@ -46,10 +49,11 @@ def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
     builder.add_edge("recibir_correo", "clasificar")
     builder.add_conditional_edges("clasificar", nodos.rutas_tras_clasificar, nodos.RAMAS_DE_CONTEXTO)
 
-    # Cada rama apunta a redactar. Como todas terminan en el mismo superstep,
-    # redactar corre UNA vez, ya con la documentación, el historial y el ticket.
+    # Cada rama apunta al inventario. Como todas terminan en el mismo superstep, el
+    # inventario corre UNA vez, ya sabiendo qué piezas existen; después se redacta.
     for rama in nodos.RAMAS_DE_CONTEXTO:
-        builder.add_edge(rama, "redactar_respuesta")
+        builder.add_edge(rama, "consultar_inventario")
+    builder.add_edge("consultar_inventario", "redactar_respuesta")
 
     builder.add_edge("redactar_respuesta", "verificar_respuesta")
     # Las salidas de verificar_respuesta y revision_humana las crean sus Command.

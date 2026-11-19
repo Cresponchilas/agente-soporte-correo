@@ -24,7 +24,7 @@ from soporte.agente.estado import Fragmento
 PATRON_CODIGO = re.compile(r"(?<![A-Z0-9-])[A-Z]{2,3}(?:-[A-Z0-9]+)+(?![A-Z0-9-])")
 
 # Un dato verificable: un número con unidad o un precio en dólares.
-_UNIDADES = r"mm|m|VDC|VAC|A|bar|°C|%|días hábiles|días calendario|días|meses"
+_UNIDADES = r"mm|m|VDC|VAC|A|bar|°C|%|días hábiles|días calendario|días|meses|unidades"
 PATRON_DATO = re.compile(rf"USD\s?\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?\s?(?:{_UNIDADES})(?![A-Za-z])")
 _PRECIO_SUELTO = re.compile(r"(?:US\$|\$)\s?(\d+(?:[.,]\d+)?)|(\d+(?:[.,]\d+)?)\s?(?:USD|dólares)")
 
@@ -93,17 +93,22 @@ def busqueda_exacta(correo: str, catalogo: list[Fragmento]) -> tuple[ResultadoBu
     return resultado, [f for f in catalogo if f["fuente"] in fuentes]
 
 
-def combinar_contexto(vectorial: list[Fragmento], exacta: list[Fragmento]) -> list[Fragmento]:
-    """Une los resultados de las dos búsquedas sin repetir y marca de dónde salió cada
-    fragmento. Los de la búsqueda exacta van primero: son coincidencias seguras."""
+def combinar_contexto(
+    vectorial: list[Fragmento], exacta: list[Fragmento], inventario: list[Fragmento] = ()
+) -> list[Fragmento]:
+    """Une lo que encontró cada fuente sin repetir y marca de dónde salió cada
+    fragmento. Primero lo seguro: la búsqueda exacta y el inventario."""
     fuentes_vectorial = {f["fuente"] for f in vectorial}
     fuentes_exacta = {f["fuente"] for f in exacta}
     combinados: dict[str, Fragmento] = {}
-    for fragmento in [*exacta, *vectorial]:
+    for fragmento in [*exacta, *inventario, *vectorial]:
         fuente = fragmento["fuente"]
         if fuente in combinados:
             continue
         en_ambas = fuente in fuentes_vectorial and fuente in fuentes_exacta
-        origen = "ambas" if en_ambas else "exacta" if fuente in fuentes_exacta else "vectorial"
+        if fuente.startswith("inventario#"):
+            origen = "inventario"
+        else:
+            origen = "ambas" if en_ambas else "exacta" if fuente in fuentes_exacta else "vectorial"
         combinados[fuente] = {**fragmento, "origen": origen}
     return list(combinados.values())

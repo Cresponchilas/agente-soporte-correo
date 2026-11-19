@@ -10,7 +10,8 @@ from langgraph.types import Command, interrupt
 from soporte import servicios
 from soporte.agente import llm, prompts, verificador
 from soporte.agente.estado import EstadoCorreo, Fragmento
-from soporte.conocimiento import busqueda, rag, verificacion
+from soporte.conocimiento import busqueda, fuentes, rag, verificacion
+from soporte.datos import inventario
 from soporte.conocimiento.verificacion import RevisionDelVerificador
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,21 @@ def crear_ticket(estado: EstadoCorreo) -> dict:
     return {"ticket_id": servicios.crear_ticket(c["resumen"], c["urgencia"]), "pasos": ["crear_ticket"]}
 
 
+def consultar_inventario(estado: EstadoCorreo) -> dict:
+    """Precio y stock de las piezas del caso, desde la base SQL: la única fuente de
+    verdad para esos datos. Corre después de las ramas de contexto porque necesita
+    saber qué piezas existen (lo dice la búsqueda exacta)."""
+    codigos = list(estado.get("busqueda_exacta", {}).get("encontrados", {}))
+    try:
+        fragmentos = inventario.fragmentos(codigos)
+    except Exception as error:  # noqa: BLE001
+        logger.warning("Falló la consulta al inventario: %s", error)
+        # Sin inventario el redactor no tiene precios ni stock, y el prompt le dice que
+        # entonces no los dé. Se guarda el error para verlo en el dashboard.
+        fragmentos = [Fragmento(fuente="error-inventario", texto=f"Inventario no disponible: {error}")]
+    return {"fragmentos_inventario": fragmentos, "pasos": ["consultar_inventario"]}
+
+
 def motivos_de_negocio(estado: EstadoCorreo) -> list[str]:
     """Reglas de negocio para pedir revisión humana. Las decide el código, no el LLM:
     el modelo clasifica, nosotros enrutamos. Lista vacía = no hace falta revisión."""
@@ -95,8 +111,10 @@ def motivos_de_negocio(estado: EstadoCorreo) -> list[str]:
 def redactar_respuesta(estado: EstadoCorreo) -> dict:
     c = estado["clasificacion"]
     historial = estado.get("historial_cliente", {})
-    # El modelo ve las dos búsquedas combinadas; la exacta primero porque es segura.
-    contexto = busqueda.combinar_contexto(estado.get("fragmentos", []), estado.get("fragmentos_exactos", []))
+    # El modelo ve todo combinado: primero lo seguro (búsqueda exacta e inventario).
+    contexto = busqueda.combinar_contexto(
+        estado.get("fragmentos", []), estado.get("fragmentos_exactos", []), estado.get("fragmentos_inventario", [])
+    )
     documentacion = "\n\n".join(f"[{f['fuente']}]\n{f['texto']}" for f in contexto) or "Sin documentación."
 
     prompt = prompts.REDACTAR.format(
@@ -116,7 +134,7 @@ def verificar_respuesta(estado: EstadoCorreo) -> Command[Literal["revision_human
     """Último control antes de enviar, en dos capas:
 
     1. Piso literal (sin LLM): cada número de pieza y dato del borrador tiene que
-       existir tal cual en el catálogo. Se comprueba siempre.
+       existir tal cual en el catálogo o el inventario. Se comprueba siempre.
     2. Verificador agente: un LLM con la herramienta buscar_en_catalogo elige qué más
        comprobar (a qué pieza pertenece cada dato, políticas, compatibilidades).
 
@@ -124,8 +142,9 @@ def verificar_respuesta(estado: EstadoCorreo) -> Command[Literal["revision_human
     falle, manda la respuesta a revisión humana: lo peor que puede pasar es revisar
     de más, no dejar pasar un invento.
     """
-    catalogo = rag.catalogo()
-    piso = verificacion.comprobar_literal(estado["borrador"], estado.get("contexto", []), catalogo)
+    piso = verificacion.comprobar_literal(
+        estado["borrador"], estado.get("contexto", []), fuentes.todas(), correo=estado["cuerpo"]
+    )
     try:
         revision = verificador.revisar(estado["cuerpo"], estado["borrador"])
         error = None

@@ -31,7 +31,7 @@ from langchain_core.tools import tool
 from soporte import config
 from soporte.agente import prompts
 from soporte.agente.estado import EntregarVeredicto
-from soporte.conocimiento import rag, verificacion
+from soporte.conocimiento import fuentes, verificacion
 from soporte.conocimiento.verificacion import Busqueda, RevisionDelVerificador
 
 # Cada llamada al modelo cuesta tiempo y dinero; sin tope, un agente que nunca
@@ -49,10 +49,11 @@ class VerificadorSinVeredicto(RuntimeError):
 
 @tool(response_format="content_and_artifact")
 def buscar_en_catalogo(termino: str) -> tuple[str, list[str]]:
-    """Busca un texto literal en el catálogo de Andina Automatización (como grep) y devuelve
-    las secciones que lo contienen, cada una con su fuente entre corchetes. Usa términos
-    cortos y distintivos: un número de pieza (SI-M12-04P) o una palabra clave (garantía)."""
-    resultado = verificacion.buscar_en_catalogo(termino, rag.catalogo())
+    """Busca un texto literal en el catálogo y el inventario de Andina Automatización (como
+    grep) y devuelve las secciones que lo contienen, cada una con su fuente entre corchetes.
+    Las secciones inventario#CÓDIGO traen precio y stock. Usa términos cortos y distintivos:
+    un número de pieza (SI-M12-04P) o una palabra clave (garantía)."""
+    resultado = verificacion.buscar_en_catalogo(termino, fuentes.todas())
     # content_and_artifact: el modelo lee el texto; las fuentes viajan aparte, en el
     # ToolMessage, sin pasar por el modelo. Con ellas el código valida lo que cite.
     return resultado["texto"], resultado["fuentes"]

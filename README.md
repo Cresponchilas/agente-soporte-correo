@@ -12,13 +12,14 @@ automatización industrial (sensores, válvulas neumáticas, fuentes de poder), 
    - **búsqueda exacta**: cada número de pieza del correo se busca literalmente en el catálogo (como `grep`);
    - consulta el historial del cliente;
    - abre un caso si es una garantía o la línea del cliente está parada.
-3. **Redacta** una respuesta usando solo lo que encontraron las dos búsquedas.
-4. **Verifica** el borrador en dos capas: un piso literal sin LLM (cada número de pieza y dato con unidad
-   tiene que existir en el catálogo) y un **verificador agente**, un segundo LLM que elige qué más comprobar
+3. **Consulta precio y stock en SQL** de las piezas del caso: esos datos no están en el RAG.
+4. **Redacta** una respuesta usando solo lo que reunieron esos pasos.
+5. **Verifica** el borrador en dos capas: un piso literal sin LLM (cada número de pieza y dato con unidad
+   tiene que existir en el catálogo o el inventario) y un **verificador agente**, un segundo LLM que elige qué más comprobar
    y busca en el catálogo con una herramienta determinista.
-5. **Decide con código** si una persona debe revisarla: por la verificación o por reglas de negocio. Si sí,
+6. **Decide con código** si una persona debe revisarla: por la verificación o por reglas de negocio. Si sí,
    **se pausa** con `interrupt()` y espera a que alguien apruebe, edite o rechace, viendo el motivo.
-6. **Envía** la respuesta (simulado).
+7. **Envía** la respuesta (simulado).
 
 Todo queda trazado en LangSmith, y hay evals con evaluadores de código y un LLM como juez.
 
@@ -88,6 +89,33 @@ dentro de `18 bar`, y `$54`, `54 USD` y `USD 54` cuentan como el mismo precio. S
 entiende sinónimos ni paráfrasis (solo comprueba lo que se puede comprobar literalmente) y no valida cálculos;
 por eso el prompt pide no calcular totales.
 
+## Precios y stock: SQL, no RAG
+
+El precio y el stock cambian seguido. Si vivieran en los fragmentos que se vectorizan, el agente podría leer
+un dato viejo y decir "hay 2 en stock" cuando hay 0. Por eso cada dato tiene **una sola fuente de verdad**:
+
+| Dato | Fuente de verdad | Cómo llega | Cada cuánto |
+|---|---|---|---|
+| Especificaciones, políticas, equivalencias | `data/kb/*.md` → RAG y búsqueda literal | Texto que se vectoriza | Rara vez cambia |
+| Precio por pieza | Tabla `productos` en SQLite | `data/inventario/precios.csv` (la lista del cliente) | Una vez al mes |
+| Stock por bodega | Tabla `stock` en SQLite | `data/inventario/stock-AAAA-MM-DD.pdf` (el PDF diario del cliente) | Cada día |
+
+Cómo se carga (`datos/inventario.py`):
+
+- **El PDF se lee como tabla**, con `pdfplumber`, no como texto partido en fragmentos: así ninguna fila se corta
+  ni queda sin encabezado. La fecha del inventario sale del título del PDF.
+- **Validar antes de cargar:** si falta una columna necesaria o un valor no tiene el tipo esperado, la carga
+  falla con un mensaje claro y la base no se toca. Una columna extra no rompe nada.
+- **Todo o nada:** el stock se borra y se vuelve a cargar dentro de una transacción. Si una fila trae una pieza
+  desconocida (llave foránea) o unidades negativas (`CHECK`), se deshace todo y queda el stock de ayer.
+- **Consultas con parámetros:** los códigos llegan del correo del cliente, así que van como `?` y nunca pegados
+  al SQL. Un correo con `x'; DROP TABLE stock; --` se busca como texto y no encuentra nada.
+- **Con fecha:** el agente dice "según el inventario del 2026-11-18" en vez de prometer.
+
+La base (`data/inventario.sqlite`) se crea sola la primera vez. Para recargarla, por ejemplo cuando llega un PDF
+nuevo: `python -m soporte.datos.inventario`. En producción eso lo haría un proceso programado o la llegada
+del correo del cliente.
+
 ## El grafo
 
 ```mermaid
@@ -97,10 +125,11 @@ graph TD
     clasificar -.-> busqueda_exacta
     clasificar -.-> consultar_historial
     clasificar -.-> crear_ticket
-    buscar_documentacion --> redactar_respuesta
-    busqueda_exacta --> redactar_respuesta
-    consultar_historial --> redactar_respuesta
-    crear_ticket --> redactar_respuesta
+    buscar_documentacion --> consultar_inventario
+    busqueda_exacta --> consultar_inventario
+    consultar_historial --> consultar_inventario
+    crear_ticket --> consultar_inventario
+    consultar_inventario --> redactar_respuesta
     redactar_respuesta --> verificar_respuesta
     verificar_respuesta -.-> revision_humana
     verificar_respuesta -.-> enviar_respuesta
@@ -117,6 +146,8 @@ Las líneas punteadas son rutas condicionales.
 | Salida estructurada (Pydantic) | `agente/llm.py`, `clasificar_con_llm` |
 | RAG: fragmentar, hacer embeddings y buscar | `conocimiento/rag.py` |
 | Búsqueda exacta (el "grep") | `conocimiento/busqueda.py`, nodo `busqueda_exacta` |
+| SQL: tablas con reglas, transacciones, consultas con parámetros | `datos/inventario.py`, `tests/test_inventario.py` |
+| Leer una tabla de un PDF | `datos/inventario.leer_stock_pdf` |
 | Verificación: piso literal y reglas que juzgan al verificador | `conocimiento/verificacion.py`, nodo `verificar_respuesta` |
 | Agente con `create_agent` y middleware (límites, `wrap_model_call` propio) | `agente/verificador.py`, `tests/test_verificador_agente.py` |
 | Arista condicional con varias ramas en paralelo | `nodos.rutas_tras_clasificar` + `agente/flujo.py` |
@@ -142,7 +173,10 @@ src/soporte/
 ├── conocimiento/          de dónde saca el agente lo que sabe
 │   ├── rag.py             búsqueda vectorial sobre data/kb
 │   ├── busqueda.py        búsqueda literal y búsqueda exacta de códigos
+│   ├── fuentes.py         las fuentes de verdad para verificar: catálogo + inventario
 │   └── verificacion.py    piso literal y reglas que juzgan al verificador
+├── datos/                 datos estructurados del negocio
+│   └── inventario.py      precios y stock en SQLite, cargados desde CSV y PDF
 ├── api/                   FastAPI: transmite el grafo como eventos al dashboard
 └── web/                   el dashboard (HTML, CSS y JavaScript sin compilar)
 ```
@@ -253,6 +287,8 @@ En PRs apilados; cada uno parte del anterior y deja los tests en verde:
     modelo) y `conocimiento/` (RAG, búsqueda literal, verificación), sin cambiar el comportamiento.
 13. `pr/13-verificador-con-middleware`: el verificador pasa de un loop escrito a mano a `create_agent` con middleware:
     topes de llamadas y de búsquedas, y un `wrap_model_call` propio que exige leer antes de entregar el veredicto.
+14. `pr/14-precios-y-stock-en-sql`: precio y stock salen del RAG y pasan a SQLite, cargados desde la lista de precios
+    (CSV) y el PDF de stock diario, con validación, transacciones y consultas con parámetros.
 ## Siguientes pasos
 
 - Reintento de la búsqueda cuando falla, con una arista de vuelta a `buscar_documentacion`.
