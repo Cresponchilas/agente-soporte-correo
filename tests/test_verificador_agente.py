@@ -4,11 +4,12 @@ herramientas "pide" el modelo en cada vuelta. Sin red y sin tokens."""
 import pytest
 from langchain_core.messages import AIMessage, ToolMessage
 
-from soporte import config, llm
+from soporte import config
+from soporte.agente import verificador
 
-# conftest reemplaza llm.verificar_con_llm por uno falso en cada test; aquí se prueba
+# conftest reemplaza verificador.revisar por uno falso en cada test; aquí se prueba
 # el de verdad, así que se guarda antes (al importar este módulo).
-verificar_con_llm = llm.verificar_con_llm
+revisar = verificador.revisar
 
 
 class ModeloGuionado:
@@ -61,7 +62,7 @@ def guion(monkeypatch):
 
 def test_busca_lee_y_entrega(guion):
     modelo = guion(pide(buscar("SI-M12-04P")), pide(entregar(CONTRADICHA)))
-    revision = verificar_con_llm("¿Qué alcance tiene?", "El SI-M12-04P detecta a 8 mm.")
+    revision = revisar("¿Qué alcance tiene?", "El SI-M12-04P detecta a 8 mm.")
 
     assert modelo.tool_choice == "any"  # siempre tiene que usar una herramienta
     assert revision["afirmaciones"][0]["veredicto"] == "contradicha"
@@ -79,7 +80,7 @@ def test_no_acepta_un_veredicto_escrito_antes_de_ver_las_busquedas(guion):
         pide(buscar("SI-M12-04P"), entregar()),  # busca y "entrega" en la misma vuelta
         pide(entregar(CONTRADICHA)),
     )
-    revision = verificar_con_llm("correo", "borrador")
+    revision = revisar("correo", "borrador")
 
     assert len(modelo.recibidos) == 2
     assert revision["afirmaciones"] == [CONTRADICHA]
@@ -87,12 +88,12 @@ def test_no_acepta_un_veredicto_escrito_antes_de_ver_las_busquedas(guion):
 
 
 def test_sin_veredicto_tras_el_tope_de_vueltas_falla(guion):
-    guion(*[pide(buscar("USD"))] * llm.MAXIMO_VUELTAS)
-    with pytest.raises(llm.VerificadorSinVeredicto):
-        verificar_con_llm("correo", "borrador")
+    guion(*[pide(buscar("USD"))] * verificador.MAXIMO_VUELTAS)
+    with pytest.raises(verificador.VerificadorSinVeredicto):
+        revisar("correo", "borrador")
 
 
 def test_un_veredicto_mal_formado_falla_en_vez_de_aprobar(guion):
     guion(pide(("EntregarVeredicto", {"afirmaciones": [{"afirmacion": "x", "veredicto": "quizas"}]})))
     with pytest.raises(ValueError):  # ValidationError de Pydantic; el nodo lo manda a revisión
-        verificar_con_llm("correo", "borrador")
+        revisar("correo", "borrador")

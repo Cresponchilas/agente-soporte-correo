@@ -14,25 +14,33 @@
 
 import json
 import uuid
+from functools import lru_cache
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langsmith import Client
 from pydantic import BaseModel, Field
 
 from soporte import config
-from soporte.graph import construir_grafo
+from soporte.agente.flujo import construir_grafo
 
 NOMBRE_DATASET = "agente-soporte-correo"
-cliente = Client()
+
+
+@lru_cache
+def cliente() -> Client:
+    # Se crea al usarse, no al importar: así los tests importan este módulo sin red.
+    return Client()
+
+
 grafo = construir_grafo(checkpointer=InMemorySaver())
 
 
 def asegurar_dataset() -> str:
-    if cliente.has_dataset(dataset_name=NOMBRE_DATASET):
+    if cliente().has_dataset(dataset_name=NOMBRE_DATASET):
         return NOMBRE_DATASET
     ejemplos = json.loads((config.RAIZ / "data" / "correos_ejemplo.json").read_text(encoding="utf-8"))
-    dataset = cliente.create_dataset(NOMBRE_DATASET, description="Correos de soporte con intención y revisión esperadas")
-    cliente.create_examples(
+    dataset = cliente().create_dataset(NOMBRE_DATASET, description="Correos de soporte con intención y revisión esperadas")
+    cliente().create_examples(
         dataset_id=dataset.id,
         examples=[{"inputs": e["entrada"], "outputs": e["esperado"]} for e in ejemplos],
     )
@@ -91,7 +99,7 @@ def respuesta_fundamentada(outputs: dict) -> dict:
 
 
 if __name__ == "__main__":
-    resultados = cliente.evaluate(
+    resultados = cliente().evaluate(
         objetivo,
         data=asegurar_dataset(),
         evaluators=[intencion_correcta, revision_correcta, respuesta_fundamentada],

@@ -21,7 +21,7 @@ from soporte.api.corridas import configuracion, esta_pausada_en_revision, transm
 from soporte.api.esquemas import CasoDePrueba, CorreoEntrante, DecisionHumana, Salud
 from soporte.api.eventos import resumen_del_estado
 from soporte.api.persistencia import abrir_checkpointer
-from soporte.graph import construir_grafo
+from soporte.agente.flujo import construir_grafo
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 

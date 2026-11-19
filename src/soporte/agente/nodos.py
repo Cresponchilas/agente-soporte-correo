@@ -7,9 +7,11 @@ from typing import Literal
 from langgraph.graph import END
 from langgraph.types import Command, interrupt
 
-from soporte import kb, llm, prompts, servicios, verificacion
-from soporte.state import EstadoCorreo, Fragmento
-from soporte.verificacion import RevisionDelVerificador
+from soporte import servicios
+from soporte.agente import llm, prompts, verificador
+from soporte.agente.estado import EstadoCorreo, Fragmento
+from soporte.conocimiento import busqueda, rag, verificacion
+from soporte.conocimiento.verificacion import RevisionDelVerificador
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +53,7 @@ def rutas_tras_clasificar(estado: EstadoCorreo) -> list[str]:
 def buscar_documentacion(estado: EstadoCorreo) -> dict:
     c = estado["clasificacion"]
     try:
-        fragmentos = kb.buscar(f"{c['tema']}. {c['resumen']}")
+        fragmentos = rag.buscar(f"{c['tema']}. {c['resumen']}")
     except Exception as error:  # noqa: BLE001
         logger.warning("Falló la búsqueda en la base de conocimiento: %s", error)
         # Un agente largo no debe caerse por una búsqueda fallida: se guarda el
@@ -63,7 +65,7 @@ def buscar_documentacion(estado: EstadoCorreo) -> dict:
 def busqueda_exacta(estado: EstadoCorreo) -> dict:
     """El "grep": busca literalmente en el catálogo cada número de pieza del correo.
     Corre en paralelo con la búsqueda vectorial y encuentra lo que ella confunde."""
-    resultado, fragmentos = verificacion.busqueda_exacta(f"{estado.get('asunto', '')}\n{estado['cuerpo']}", kb.catalogo())
+    resultado, fragmentos = busqueda.busqueda_exacta(f"{estado.get('asunto', '')}\n{estado['cuerpo']}", rag.catalogo())
     return {"busqueda_exacta": resultado, "fragmentos_exactos": fragmentos, "pasos": ["busqueda_exacta"]}
 
 
@@ -94,7 +96,7 @@ def redactar_respuesta(estado: EstadoCorreo) -> dict:
     c = estado["clasificacion"]
     historial = estado.get("historial_cliente", {})
     # El modelo ve las dos búsquedas combinadas; la exacta primero porque es segura.
-    contexto = verificacion.combinar_contexto(estado.get("fragmentos", []), estado.get("fragmentos_exactos", []))
+    contexto = busqueda.combinar_contexto(estado.get("fragmentos", []), estado.get("fragmentos_exactos", []))
     documentacion = "\n\n".join(f"[{f['fuente']}]\n{f['texto']}" for f in contexto) or "Sin documentación."
 
     prompt = prompts.REDACTAR.format(
@@ -122,10 +124,10 @@ def verificar_respuesta(estado: EstadoCorreo) -> Command[Literal["revision_human
     falle, manda la respuesta a revisión humana: lo peor que puede pasar es revisar
     de más, no dejar pasar un invento.
     """
-    catalogo = kb.catalogo()
+    catalogo = rag.catalogo()
     piso = verificacion.comprobar_literal(estado["borrador"], estado.get("contexto", []), catalogo)
     try:
-        revision = llm.verificar_con_llm(estado["cuerpo"], estado["borrador"])
+        revision = verificador.revisar(estado["cuerpo"], estado["borrador"])
         error = None
     except Exception as falla:  # noqa: BLE001
         logger.warning("Falló el verificador agente: %s", falla)

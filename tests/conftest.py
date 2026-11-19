@@ -11,8 +11,9 @@ os.environ["LANGSMITH_TRACING"] = "false"
 import pytest
 from langchain_core.embeddings import Embeddings
 
-from soporte import kb, llm
-from soporte.state import Clasificacion
+from soporte.agente import llm, verificador
+from soporte.agente.estado import Clasificacion
+from soporte.conocimiento import rag
 
 
 class EmbeddingsFalsos(Embeddings):
@@ -51,7 +52,7 @@ def revision_falsa(monkeypatch):
 
     def _configurar(afirmaciones=(), busquedas=()):
         revision = {"afirmaciones": list(afirmaciones), "busquedas": list(busquedas)}
-        monkeypatch.setattr(llm, "verificar_con_llm", lambda cuerpo, borrador: revision)
+        monkeypatch.setattr(verificador, "revisar", lambda cuerpo, borrador: revision)
         return revision
 
     return _configurar
@@ -61,6 +62,6 @@ def revision_falsa(monkeypatch):
 def sin_llamadas_reales(monkeypatch):
     monkeypatch.setattr(llm, "redactar_con_llm", lambda prompt: "Hola, este es un borrador de prueba.")
     # Por defecto el verificador agente no encuentra nada que comprobar.
-    monkeypatch.setattr(llm, "verificar_con_llm", lambda cuerpo, borrador: {"afirmaciones": [], "busquedas": []})
-    indice_falso = kb.construir_indice(EmbeddingsFalsos())
-    monkeypatch.setattr(kb, "indice", lambda: indice_falso)
+    monkeypatch.setattr(verificador, "revisar", lambda cuerpo, borrador: {"afirmaciones": [], "busquedas": []})
+    indice_falso = rag.construir_indice(EmbeddingsFalsos())
+    monkeypatch.setattr(rag, "indice", lambda: indice_falso)

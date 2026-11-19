@@ -6,7 +6,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from soporte import llm
+from soporte.agente import llm
 from soporte.api.ajustes import Ajustes
 from soporte.api.app import crear_app
 

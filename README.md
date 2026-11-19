@@ -28,7 +28,7 @@ Un RAG vectorial encuentra textos *parecidos*. Para un catálogo eso es un riesg
 `SI-M12-06P` se parecen mucho como vectores, pero la segunda pieza no existe. Un modelo que recibe la ficha
 de la primera puede contestar sobre la segunda con total seguridad.
 
-Por eso la búsqueda literal (`src/soporte/verificacion.py`, en la línea de "grep is all you need") aparece en
+Por eso la búsqueda literal (`conocimiento/busqueda.py` y `conocimiento/verificacion.py`, en la línea de "grep is all you need") aparece en
 dos momentos con trabajos distintos: uno **previene** y el otro **detecta**.
 
 | Paso | Cuándo | Qué hace | Para qué |
@@ -95,17 +95,42 @@ Las líneas punteadas son rutas condicionales.
 
 | Concepto | Dónde está |
 |---|---|
-| Estado compartido y reductor (`operator.add`) | `src/soporte/state.py`, clave `pasos` |
-| Salida estructurada (Pydantic) | `llm.py`, `clasificar_con_llm` |
-| RAG: fragmentar, hacer embeddings y buscar | `kb.py` |
-| Búsqueda exacta y verificación determinística | `verificacion.py`, nodos `busqueda_exacta` y `verificar_respuesta` |
-| Agente con herramientas (loop con tope, `bind_tools`, `tool_choice`) | `llm.verificar_con_llm`, `tests/test_verificador_agente.py` |
-| Arista condicional con varias ramas en paralelo | `nodes.rutas_tras_clasificar` + `graph.py` |
-| `Command` (actualizar estado y enrutar a la vez) | `nodes.verificar_respuesta`, `nodes.revision_humana` |
-| Human in the loop con `interrupt()` | `nodes.revision_humana` |
+| Estado compartido y reductor (`operator.add`) | `agente/estado.py`, clave `pasos` |
+| Salida estructurada (Pydantic) | `agente/llm.py`, `clasificar_con_llm` |
+| RAG: fragmentar, hacer embeddings y buscar | `conocimiento/rag.py` |
+| Búsqueda exacta (el "grep") | `conocimiento/busqueda.py`, nodo `busqueda_exacta` |
+| Verificación: piso literal y reglas que juzgan al verificador | `conocimiento/verificacion.py`, nodo `verificar_respuesta` |
+| Agente con herramientas (loop con tope, `bind_tools`, `tool_choice`) | `agente/verificador.py`, `tests/test_verificador_agente.py` |
+| Arista condicional con varias ramas en paralelo | `nodos.rutas_tras_clasificar` + `agente/flujo.py` |
+| `Command` (actualizar estado y enrutar a la vez) | `nodos.verificar_respuesta`, `nodos.revision_humana` |
+| Human in the loop con `interrupt()` | `nodos.revision_humana` |
 | Checkpointer (SQLite) y `thread_id` | `api/persistencia.py`, `tests/test_api.py` |
-| Errores guardados en el estado, sin tumbar el grafo | `nodes.buscar_documentacion` |
+| Errores guardados en el estado, sin tumbar el grafo | `nodos.buscar_documentacion` |
 | Evals: código + LLM juez estrecho y binario | `evals/run_evals.py` |
+
+## Mapa del código
+
+```
+src/soporte/
+├── config.py              modelos y rutas, desde variables de entorno
+├── servicios.py           sistemas externos simulados: CRM, tickets, envío de correo
+├── agente/                el agente: qué pasos da y en qué orden
+│   ├── estado.py          el estado compartido (el contrato entre nodos) y los esquemas Pydantic
+│   ├── flujo.py           el grafo de LangGraph: nodos y aristas (flujo de control)
+│   ├── nodos.py           lo que hace cada paso
+│   ├── prompts.py         los prompts
+│   ├── llm.py             clasificar y redactar: las llamadas directas al modelo
+│   └── verificador.py     el verificador agente: un LLM con una herramienta de búsqueda
+├── conocimiento/          de dónde saca el agente lo que sabe
+│   ├── rag.py             búsqueda vectorial sobre data/kb
+│   ├── busqueda.py        búsqueda literal y búsqueda exacta de códigos
+│   └── verificacion.py    piso literal y reglas que juzgan al verificador
+├── api/                   FastAPI: transmite el grafo como eventos al dashboard
+└── web/                   el dashboard (HTML, CSS y JavaScript sin compilar)
+```
+
+Regla de dependencias: `agente/` usa a `conocimiento/`, nunca al revés (salvo los tipos
+de `agente/estado.py`). Así lo que sabe el agente se puede probar sin el agente.
 
 ## Instalación
 
@@ -181,7 +206,7 @@ Por defecto se usa `gpt-4.1-mini` y `text-embedding-3-small`; los dos se cambian
 - **Lo exacto se comprueba con búsqueda exacta.** Los embeddings sirven para encontrar; para confirmar un número de pieza o un precio se usa comparación literal.
 - **`interrupt()` al inicio del nodo.** Al reanudar, el nodo se ejecuta otra vez desde el principio; nada costoso o con efectos va antes de la pausa.
 - **Estado con tipos simples.** La clasificación se guarda como dict para que serialice bien en el checkpointer y se lea fácil en Studio.
-- **LLM aislado en `llm.py`.** Los tests lo reemplazan con `monkeypatch`, así que corren sin red y sin costo.
+- **LLM aislado en `agente/llm.py` y `agente/verificador.py`.** Los tests lo reemplazan con `monkeypatch`, así que corren sin red y sin costo.
 - **Un fragmento por sección del markdown.** Cada sección responde una sola pregunta, y la fuente (`archivo#sección`) se puede citar.
 
 ## Cómo se construyó
@@ -206,6 +231,8 @@ En PRs apilados; cada uno parte del anterior y deja los tests en verde:
     la regex queda como piso, el código valida la evidencia que cita el modelo y decide la ruta. Se quita el aviso
     duplicado de la pieza inexistente.
 
+12. `pr/12-ordenar-por-responsabilidades`: el código pasa a dos paquetes, `agente/` (estado, flujo, nodos, llamadas al
+    modelo) y `conocimiento/` (RAG, búsqueda literal, verificación), sin cambiar el comportamiento.
 ## Siguientes pasos
 
 - Reintento de la búsqueda cuando falla, con una arista de vuelta a `buscar_documentacion`.
