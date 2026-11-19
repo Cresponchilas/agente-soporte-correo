@@ -1,0 +1,287 @@
+{
+  "nodos": [
+    {
+      "codigo": "FP-24-10",
+      "marca": "Andina",
+      "familia": "fuente de poder",
+      "estado": "activo"
+    },
+    {
+      "codigo": "FP-24-5",
+      "marca": "Andina",
+      "familia": "fuente de poder",
+      "estado": "activo"
+    },
+    {
+      "codigo": "KT-M18-8PS",
+      "marca": "Kentra",
+      "familia": "sensor inductivo",
+      "estado": "activo"
+    },
+    {
+      "codigo": "KT-M30-20P",
+      "marca": "Kentra",
+      "familia": "sensor inductivo",
+      "estado": "activo"
+    },
+    {
+      "codigo": "PX-12-4N",
+      "marca": "Proxima",
+      "familia": "sensor inductivo",
+      "estado": "activo"
+    },
+    {
+      "codigo": "PX-12-4P",
+      "marca": "Proxima",
+      "familia": "sensor inductivo",
+      "estado": "activo"
+    },
+    {
+      "codigo": "RF-50",
+      "marca": null,
+      "familia": null,
+      "estado": null
+    },
+    {
+      "codigo": "SF-D60-P",
+      "marca": "Andina",
+      "familia": "sensor fotoeléctrico",
+      "estado": "activo"
+    },
+    {
+      "codigo": "SF-R15-P",
+      "marca": null,
+      "familia": null,
+      "estado": null
+    },
+    {
+      "codigo": "SF-R2M-P",
+      "marca": "Andina",
+      "familia": "sensor fotoeléctrico",
+      "estado": "activo"
+    },
+    {
+      "codigo": "SI-M08-02P",
+      "marca": "Andina",
+      "familia": "sensor inductivo",
+      "estado": "descontinuado"
+    },
+    {
+      "codigo": "SI-M12-04N",
+      "marca": "Andina",
+      "familia": "sensor inductivo",
+      "estado": "activo"
+    },
+    {
+      "codigo": "SI-M12-04P",
+      "marca": "Andina",
+      "familia": "sensor inductivo",
+      "estado": "activo"
+    },
+    {
+      "codigo": "SI-M12-04P-L",
+      "marca": "Andina",
+      "familia": "sensor inductivo",
+      "estado": "descontinuado"
+    },
+    {
+      "codigo": "SI-M18-08P",
+      "marca": "Andina",
+      "familia": "sensor inductivo",
+      "estado": "activo"
+    },
+    {
+      "codigo": "SI-M30-15P",
+      "marca": "Andina",
+      "familia": "sensor inductivo",
+      "estado": "activo"
+    }
+  ],
+  "aristas": [
+    {
+      "de": "SI-M12-04P-L",
+      "tipo": "reemplazado_por",
+      "a": "SI-M12-04P",
+      "origen": "documento",
+      "razon": "documento: equivalencias#Reemplazo del SI-M12-04P-L",
+      "fuente": "equivalencias#Reemplazo del SI-M12-04P-L"
+    },
+    {
+      "de": "SF-R15-P",
+      "tipo": "reemplazado_por",
+      "a": "SF-R2M-P",
+      "origen": "documento",
+      "razon": "documento: equivalencias#Reemplazo del SF-R15-P",
+      "fuente": "equivalencias#Reemplazo del SF-R15-P"
+    },
+    {
+      "de": "SF-R2M-P",
+      "tipo": "requiere",
+      "a": "RF-50",
+      "origen": "documento",
+      "razon": "documento: sensores-fotoelectricos#SF-R2M-P",
+      "fuente": "sensores-fotoelectricos#SF-R2M-P"
+    },
+    {
+      "de": "FP-24-5",
+      "tipo": "puede_alimentar",
+      "a": "SI-M12-04P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-5",
+      "tipo": "puede_alimentar",
+      "a": "SI-M12-04N",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-5",
+      "tipo": "puede_alimentar",
+      "a": "SI-M18-08P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-5",
+      "tipo": "puede_alimentar",
+      "a": "SI-M30-15P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-5",
+      "tipo": "puede_alimentar",
+      "a": "SF-R2M-P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-5",
+      "tipo": "puede_alimentar",
+      "a": "SF-D60-P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-5",
+      "tipo": "puede_alimentar",
+      "a": "PX-12-4P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 12 a 24 VDC"
+    },
+    {
+      "de": "FP-24-5",
+      "tipo": "puede_alimentar",
+      "a": "PX-12-4N",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 12 a 24 VDC"
+    },
+    {
+      "de": "FP-24-5",
+      "tipo": "puede_alimentar",
+      "a": "KT-M18-8PS",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-5",
+      "tipo": "puede_alimentar",
+      "a": "KT-M30-20P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-10",
+      "tipo": "puede_alimentar",
+      "a": "SI-M12-04P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-10",
+      "tipo": "puede_alimentar",
+      "a": "SI-M12-04N",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-10",
+      "tipo": "puede_alimentar",
+      "a": "SI-M18-08P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-10",
+      "tipo": "puede_alimentar",
+      "a": "SI-M30-15P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-10",
+      "tipo": "puede_alimentar",
+      "a": "SF-R2M-P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-10",
+      "tipo": "puede_alimentar",
+      "a": "SF-D60-P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-10",
+      "tipo": "puede_alimentar",
+      "a": "PX-12-4P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 12 a 24 VDC"
+    },
+    {
+      "de": "FP-24-10",
+      "tipo": "puede_alimentar",
+      "a": "PX-12-4N",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 12 a 24 VDC"
+    },
+    {
+      "de": "FP-24-10",
+      "tipo": "puede_alimentar",
+      "a": "KT-M18-8PS",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "FP-24-10",
+      "tipo": "puede_alimentar",
+      "a": "KT-M30-20P",
+      "origen": "regla",
+      "razon": "salida de 24 VDC dentro de 10 a 30 VDC"
+    },
+    {
+      "de": "PX-12-4P",
+      "tipo": "sustituible_por",
+      "a": "SI-M12-04P",
+      "origen": "regla",
+      "razon": "mismo tamaño M12, 4 mm, salida PNP, conexión M12 4 pines; alimentación 10 a 30 VDC cubre 12 a 24 VDC"
+    },
+    {
+      "de": "PX-12-4N",
+      "tipo": "sustituible_por",
+      "a": "SI-M12-04N",
+      "origen": "regla",
+      "razon": "mismo tamaño M12, 4 mm, salida NPN, conexión M12 4 pines; alimentación 10 a 30 VDC cubre 12 a 24 VDC"
+    },
+    {
+      "de": "KT-M18-8PS",
+      "tipo": "sustituible_por",
+      "a": "SI-M18-08P",
+      "origen": "regla",
+      "razon": "mismo tamaño M18, 8 mm, salida PNP, conexión M12 4 pines; alimentación 10 a 30 VDC cubre 10 a 30 VDC"
+    }
+  ]
+}

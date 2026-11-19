@@ -81,6 +81,8 @@ class EstadoCorreo(TypedDict, total=False):
     busqueda_exacta: dict  # números de pieza del correo buscados literalmente en el catálogo
     fragmentos_exactos: list[Fragmento]
     fragmentos_inventario: list[Fragmento]  # precio y stock desde SQL
+    fragmentos_grafo: list[Fragmento]  # relaciones del grafo de equivalencias
+    piezas_relacionadas: list[str]  # sustitutos, accesorios y fuentes que encontró el grafo
     contexto: list[Fragmento]  # lo que de verdad vio el modelo: las dos búsquedas combinadas
     historial_cliente: dict
     ticket_id: str | None

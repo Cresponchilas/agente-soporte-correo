@@ -857,7 +857,8 @@ textarea {
 
 .origen[data-origen="exacta"],
 .origen[data-origen="ambas"],
-.origen[data-origen="inventario"] {
+.origen[data-origen="inventario"],
+.origen[data-origen="grafo"] {
   border-color: var(--azul-correo);
   color: var(--azul-correo);
 }

@@ -1,0 +1,15 @@
+codigo,marca,familia,tamano,distancia_mm,salida,conexion,alimentacion_min_vdc,alimentacion_max_vdc,salida_vdc,estado
+SI-M12-04P,Andina,sensor inductivo,M12,4,PNP,M12 4 pines,10,30,,activo
+SI-M12-04N,Andina,sensor inductivo,M12,4,NPN,M12 4 pines,10,30,,activo
+SI-M18-08P,Andina,sensor inductivo,M18,8,PNP,M12 4 pines,10,30,,activo
+SI-M30-15P,Andina,sensor inductivo,M30,15,PNP,M12 4 pines,10,30,,activo
+SI-M12-04P-L,Andina,sensor inductivo,M12,4,PNP,M12 4 pines,10,30,,descontinuado
+SI-M08-02P,Andina,sensor inductivo,M8,2,PNP,M8 3 pines,10,30,,descontinuado
+SF-R2M-P,Andina,sensor fotoeléctrico,,2000,PNP,,10,30,,activo
+SF-D60-P,Andina,sensor fotoeléctrico,,600,PNP,,10,30,,activo
+FP-24-5,Andina,fuente de poder,,,,,,,24,activo
+FP-24-10,Andina,fuente de poder,,,,,,,24,activo
+PX-12-4P,Proxima,sensor inductivo,M12,4,PNP,M12 4 pines,12,24,,activo
+PX-12-4N,Proxima,sensor inductivo,M12,4,NPN,M12 4 pines,12,24,,activo
+KT-M18-8PS,Kentra,sensor inductivo,M18,8,PNP,M12 4 pines,10,30,,activo
+KT-M30-20P,Kentra,sensor inductivo,M30,20,PNP,M12 4 pines,10,30,,activo

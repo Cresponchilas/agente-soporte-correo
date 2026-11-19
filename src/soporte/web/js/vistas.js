@@ -204,7 +204,7 @@ function vistaComparacion(caso, resumen) {
   </table>`;
 }
 
-const ORIGENES = { exacta: "búsqueda exacta", vectorial: "búsqueda vectorial", ambas: "ambas búsquedas", inventario: "inventario (SQL)" };
+const ORIGENES = { exacta: "búsqueda exacta", vectorial: "búsqueda vectorial", ambas: "ambas búsquedas", inventario: "inventario (SQL)", grafo: "grafo de equivalencias" };
 
 const ESTADOS_AFIRMACION = {
   respaldado: { marca: "✓", texto: "en lo que vio el modelo" },
@@ -215,9 +215,11 @@ const ESTADOS_AFIRMACION = {
 
 function vistaBusquedaExacta(busqueda) {
   if (!busqueda || busqueda.codigos.length === 0) return "";
-  const partes = busqueda.codigos.map((codigo) =>
-    busqueda.inexistentes.includes(codigo) ? `<strong class="texto-alerta">${esc(codigo)} no existe</strong>` : `${esc(codigo)} encontrado`,
-  );
+  const partes = busqueda.codigos.map((codigo) => {
+    if (busqueda.inexistentes.includes(codigo)) return `<strong class="texto-alerta">${esc(codigo)} no existe</strong>`;
+    if ((busqueda.externos ?? []).includes(codigo)) return `${esc(codigo)} es de otra marca (ver grafo)`;
+    return `${esc(codigo)} encontrado`;
+  });
   return `<p class="resultado__linea">Búsqueda exacta de los códigos del correo: ${partes.join(", ")}.</p>`;
 }
 
@@ -387,6 +389,12 @@ function resumirActualizacion(nodo, a) {
         encontrados.length ? `Encontrados: ${encontrados.join(", ")}` : "",
         b.inexistentes.length ? `No existen: ${b.inexistentes.join(", ")}` : "",
       ].filter(Boolean).join(". ");
+    }
+    case "consultar_grafo": {
+      const fragmentos = a.fragmentos_grafo ?? [];
+      const relacionadas = a.piezas_relacionadas ?? [];
+      if (!fragmentos.length) return "Ninguna pieza del correo está en el grafo";
+      return relacionadas.length ? `Relacionadas: ${relacionadas.join(", ")}` : "Sin sustitutos ni accesorios";
     }
     case "consultar_inventario": {
       const fragmentos = a.fragmentos_inventario ?? [];

@@ -10,13 +10,13 @@ from langgraph.types import Command, interrupt
 from soporte import servicios
 from soporte.agente import llm, prompts, verificador
 from soporte.agente.estado import EstadoCorreo, Fragmento
-from soporte.conocimiento import busqueda, fuentes, rag, verificacion
+from soporte.conocimiento import busqueda, fuentes, grafo_de_equivalencias, rag, verificacion
 from soporte.datos import inventario
 from soporte.conocimiento.verificacion import RevisionDelVerificador
 
 logger = logging.getLogger(__name__)
 
-RAMAS_DE_CONTEXTO = ["buscar_documentacion", "busqueda_exacta", "consultar_historial", "crear_ticket"]
+RAMAS_DE_CONTEXTO = ["buscar_documentacion", "busqueda_exacta", "consultar_grafo", "consultar_historial", "crear_ticket"]
 
 
 def recibir_correo(estado: EstadoCorreo) -> dict:
@@ -45,7 +45,7 @@ def rutas_tras_clasificar(estado: EstadoCorreo) -> list[str]:
     Solo se abre un caso (ticket) si es una garantía o la línea del cliente está parada.
     """
     c = estado["clasificacion"]
-    rutas = ["buscar_documentacion", "busqueda_exacta", "consultar_historial"]
+    rutas = ["buscar_documentacion", "busqueda_exacta", "consultar_grafo", "consultar_historial"]
     if c["intencion"] == "garantia" or c["urgencia"] == "critica":
         rutas.append("crear_ticket")
     return rutas
@@ -66,8 +66,26 @@ def buscar_documentacion(estado: EstadoCorreo) -> dict:
 def busqueda_exacta(estado: EstadoCorreo) -> dict:
     """El "grep": busca literalmente en el catálogo cada número de pieza del correo.
     Corre en paralelo con la búsqueda vectorial y encuentra lo que ella confunde."""
-    resultado, fragmentos = busqueda.busqueda_exacta(f"{estado.get('asunto', '')}\n{estado['cuerpo']}", rag.catalogo())
+    resultado, fragmentos = busqueda.busqueda_exacta(
+        texto_del_correo(estado), rag.catalogo(), conocidos=grafo_de_equivalencias.codigos()
+    )
     return {"busqueda_exacta": resultado, "fragmentos_exactos": fragmentos, "pasos": ["busqueda_exacta"]}
+
+
+def consultar_grafo(estado: EstadoCorreo) -> dict:
+    """Recorre el grafo de equivalencias desde cada pieza del correo: sustitutos (de una
+    pieza descontinuada o de otra marca), accesorios y fuentes que la alimentan. Es lo
+    que la búsqueda vectorial no resuelve: respuestas repartidas en varios documentos."""
+    fragmentos, relacionadas = [], []
+    for codigo in busqueda.extraer_codigos(texto_del_correo(estado)):
+        if fragmento := grafo_de_equivalencias.como_fragmento(codigo):
+            fragmentos.append(fragmento)
+            relacionadas += [p for p in grafo_de_equivalencias.piezas_relacionadas(codigo) if p not in relacionadas]
+    return {"fragmentos_grafo": fragmentos, "piezas_relacionadas": relacionadas, "pasos": ["consultar_grafo"]}
+
+
+def texto_del_correo(estado: EstadoCorreo) -> str:
+    return f"{estado.get('asunto', '')}\n{estado['cuerpo']}"
 
 
 def consultar_historial(estado: EstadoCorreo) -> dict:
@@ -82,8 +100,10 @@ def crear_ticket(estado: EstadoCorreo) -> dict:
 def consultar_inventario(estado: EstadoCorreo) -> dict:
     """Precio y stock de las piezas del caso, desde la base SQL: la única fuente de
     verdad para esos datos. Corre después de las ramas de contexto porque necesita
-    saber qué piezas existen (lo dice la búsqueda exacta)."""
+    saber qué piezas importan: las del correo que existen (búsqueda exacta) y las que
+    encontró el grafo (sustitutos, accesorios, fuentes)."""
     codigos = list(estado.get("busqueda_exacta", {}).get("encontrados", {}))
+    codigos += [c for c in estado.get("piezas_relacionadas", []) if c not in codigos]
     try:
         fragmentos = inventario.fragmentos(codigos)
     except Exception as error:  # noqa: BLE001
@@ -111,9 +131,12 @@ def motivos_de_negocio(estado: EstadoCorreo) -> list[str]:
 def redactar_respuesta(estado: EstadoCorreo) -> dict:
     c = estado["clasificacion"]
     historial = estado.get("historial_cliente", {})
-    # El modelo ve todo combinado: primero lo seguro (búsqueda exacta e inventario).
+    # El modelo ve todo combinado: primero lo seguro (búsqueda exacta, grafo e inventario).
     contexto = busqueda.combinar_contexto(
-        estado.get("fragmentos", []), estado.get("fragmentos_exactos", []), estado.get("fragmentos_inventario", [])
+        estado.get("fragmentos", []),
+        estado.get("fragmentos_exactos", []),
+        inventario=estado.get("fragmentos_inventario", []),
+        grafo=estado.get("fragmentos_grafo", []),
     )
     documentacion = "\n\n".join(f"[{f['fuente']}]\n{f['texto']}" for f in contexto) or "Sin documentación."
 

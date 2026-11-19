@@ -1,0 +1,8 @@
+{
+  "descripcion": "Relaciones que no se pueden calcular desde las especificaciones: salen de los documentos del catálogo (data/kb).",
+  "relaciones": [
+    {"de": "SI-M12-04P-L", "tipo": "reemplazado_por", "a": "SI-M12-04P", "fuente": "equivalencias#Reemplazo del SI-M12-04P-L"},
+    {"de": "SF-R15-P", "tipo": "reemplazado_por", "a": "SF-R2M-P", "fuente": "equivalencias#Reemplazo del SF-R15-P"},
+    {"de": "SF-R2M-P", "tipo": "requiere", "a": "RF-50", "fuente": "sensores-fotoelectricos#SF-R2M-P"}
+  ]
+}

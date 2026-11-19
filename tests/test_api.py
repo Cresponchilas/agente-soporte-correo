@@ -36,7 +36,7 @@ def test_salud_indica_persistencia_en_memoria(cliente):
 
 def test_casos_de_prueba_disponibles(cliente):
     casos = cliente.get("/api/casos").json()
-    assert len(casos) == 8
+    assert len(casos) == 9
     assert {"id", "entrada", "esperado"} <= set(casos[0])
 
 

@@ -89,5 +89,19 @@
       "intencion": "cotizacion",
       "necesita_revision": true
     }
+  },
+  {
+    "entrada": {
+      "remitente": "mantenimiento@empacadoraelvalle.com",
+      "asunto": "Equivalente de sensor Proxima",
+      "cuerpo": "Se nos dañó un sensor Proxima PX-12-4P en la banda transportadora. ¿Qué referencia de ustedes lo reemplaza, cuánto vale y lo tienen en stock?"
+    },
+    "esperado": {
+      "intencion": [
+        "reemplazo",
+        "cotizacion"
+      ],
+      "necesita_revision": false
+    }
   }
 ]

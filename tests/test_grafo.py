@@ -200,3 +200,16 @@ def test_un_precio_inventado_lo_frena_el_piso(grafo, clasificacion_falsa, monkey
 
     assert "__interrupt__" in resultado  # el inventario dice USD 46
     assert "USD 41" in " ".join(resultado["__interrupt__"][0].value["motivos"])
+
+
+def test_pieza_de_otra_marca_trae_su_sustituto_y_el_precio(grafo, clasificacion_falsa):
+    clasificacion_falsa(intencion="reemplazo", urgencia="baja")
+    correo = {**CORREO, "cuerpo": "Se nos dañó un sensor Proxima PX-12-4P. ¿Qué referencia suya lo reemplaza?"}
+    resultado = grafo.invoke(correo, config())
+
+    assert resultado["busqueda_exacta"]["externos"] == ["PX-12-4P"]  # de otra marca: no es "inexistente"
+    assert resultado["busqueda_exacta"]["inexistentes"] == []
+    fuentes_del_contexto = {f["fuente"] for f in resultado["contexto"]}
+    assert "grafo#PX-12-4P" in fuentes_del_contexto
+    assert "inventario#SI-M12-04P" in fuentes_del_contexto  # el sustituto llegó al inventario
+    assert resultado["enviado"] is True
