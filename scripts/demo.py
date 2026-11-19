@@ -10,6 +10,7 @@ import sys
 import uuid
 
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.store.memory import InMemoryStore
 from langgraph.types import Command
 
 from soporte import config
@@ -33,7 +34,8 @@ def main() -> None:
     if len(sys.argv) > 1:
         correos = [correos[int(sys.argv[1])]]
 
-    grafo = construir_grafo(checkpointer=InMemorySaver())
+    # Con Store: si dos correos son del mismo cliente, el segundo ya recuerda el primero.
+    grafo = construir_grafo(checkpointer=InMemorySaver(), store=InMemoryStore())
     for i, ejemplo in enumerate(correos):
         # Un thread por correo: cada uno tiene su propio historial de checkpoints.
         cfg = {"configurable": {"thread_id": str(uuid.uuid4())}}

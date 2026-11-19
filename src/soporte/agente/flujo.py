@@ -18,18 +18,21 @@ el orden en que corren. No es un grafo de conocimiento (datos y relaciones).
                |
       verificar_respuesta              <- piso literal + verificador agente contra catálogo, inventario y grafo
           /          \\                  (Command: revisión humana o envío directo)
- revision_humana --> enviar_respuesta --> END
-   (interrupt)  \\--> END (rechazado)
+ revision_humana --> enviar_respuesta --> recordar --> END
+   (interrupt)  \\--> END (rechazado)        (memoria de largo plazo: solo lo enviado)
 """
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.store.base import BaseStore
 
 from soporte.agente import nodos
 from soporte.agente.estado import EntradaCorreo, EstadoCorreo
 
 
-def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
+def construir_grafo(checkpointer: BaseCheckpointSaver | None = None, store: BaseStore | None = None):
+    """checkpointer = memoria de corto plazo (el estado de cada hilo).
+    store = memoria de largo plazo (lo que se recuerda de cada cliente entre hilos)."""
     # input_schema: el grafo solo acepta remitente, asunto y cuerpo como entrada;
     # el resto del estado lo llenan los nodos.
     builder = StateGraph(EstadoCorreo, input_schema=EntradaCorreo)
@@ -46,6 +49,7 @@ def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
     builder.add_node("verificar_respuesta", nodos.verificar_respuesta)
     builder.add_node("revision_humana", nodos.revision_humana)
     builder.add_node("enviar_respuesta", nodos.enviar_respuesta)
+    builder.add_node("recordar", nodos.recordar)
 
     builder.add_edge(START, "recibir_correo")
     builder.add_edge("recibir_correo", "clasificar")
@@ -59,11 +63,12 @@ def construir_grafo(checkpointer: BaseCheckpointSaver | None = None):
 
     builder.add_edge("redactar_respuesta", "verificar_respuesta")
     # Las salidas de verificar_respuesta y revision_humana las crean sus Command.
-    builder.add_edge("enviar_respuesta", END)
+    builder.add_edge("enviar_respuesta", "recordar")
+    builder.add_edge("recordar", END)
 
-    return builder.compile(checkpointer=checkpointer)
+    return builder.compile(checkpointer=checkpointer, store=store)
 
 
-# Para `langgraph dev` / Studio: la plataforma pone su propio checkpointer,
-# por eso este grafo se compila sin uno.
+# Para `langgraph dev` / Studio: la plataforma pone su propio checkpointer y su
+# propio Store, por eso este grafo se compila sin ninguno de los dos.
 graph = construir_grafo()

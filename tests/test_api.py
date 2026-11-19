@@ -49,7 +49,7 @@ def test_corrida_simple_transmite_cada_nodo_y_termina(cliente, clasificacion_fal
     assert eventos[0]["tipo"] == "inicio" and eventos[-1]["tipo"] == "fin"
     nodos_terminados = [e["nodo"] for e in eventos if e["tipo"] == "nodo_fin"]
     assert nodos_terminados[:2] == ["recibir_correo", "clasificar"]
-    assert nodos_terminados[-1] == "enviar_respuesta"
+    assert nodos_terminados[-2:] == ["enviar_respuesta", "recordar"]  # recordar va después de enviar
     assert all(e["duracion_ms"] >= 0 for e in eventos if e["tipo"] == "nodo_fin")
     assert eventos[-1]["estado"]["enviado"] is True
 
@@ -135,3 +135,17 @@ def test_corrida_pausada_sobrevive_a_un_reinicio_con_sqlite(tmp_path, clasificac
 
     assert eventos[-1]["tipo"] == "fin"
     assert eventos[-1]["estado"]["enviado"] is True
+
+
+def test_la_memoria_de_largo_plazo_sobrevive_a_un_reinicio(tmp_path, clasificacion_falsa):
+    clasificacion_falsa(intencion="especificacion", urgencia="baja")
+    ajustes = Ajustes(archivo_checkpoints=tmp_path / "checkpoints.sqlite")
+
+    with TestClient(crear_app(ajustes)) as primer_servidor:
+        primer_servidor.post("/api/corridas", json=CORREO)  # se envía y se recuerda el SI-M18-08P
+
+    with TestClient(crear_app(ajustes)) as segundo_servidor:
+        eventos = leer_eventos(segundo_servidor.post("/api/corridas", json={**CORREO, "cuerpo": "¿Tienen fuentes de 24 V?"}))
+
+    assert (tmp_path / "memoria.sqlite").exists()
+    assert eventos[-1]["estado"]["memoria_cliente"]["piezas"] == {"SI-M18-08P": 1}

@@ -20,7 +20,7 @@ automatización industrial (sensores, válvulas neumáticas, fuentes de poder), 
    y busca en el catálogo con una herramienta determinista.
 6. **Decide con código** si una persona debe revisarla: por la verificación o por reglas de negocio. Si sí,
    **se pausa** con `interrupt()` y espera a que alguien apruebe, edite o rechace, viendo el motivo.
-7. **Envía** la respuesta (simulado).
+7. **Envía** la respuesta (simulado) y **recuerda** qué piezas pidió el cliente, para el próximo correo.
 
 Todo queda trazado en LangSmith, y hay evals con evaluadores de código y un LLM como juez.
 
@@ -157,6 +157,30 @@ RETURN s.codigo, f.codigo
 Para regenerar el JSON después de editar las especificaciones o las relaciones:
 `python -m soporte.conocimiento.grafo_de_equivalencias`. Un test falla si el JSON quedó desactualizado.
 
+## Memoria de corto y largo plazo
+
+| | Corto plazo | Largo plazo |
+|---|---|---|
+| Qué guarda | El estado de un hilo: un correo y todo lo que pasó con él | Lo que se sabe de cada cliente, entre correos |
+| Dónde | Checkpointer: `data/checkpoints.sqlite`, por `thread_id` | Store: `data/memoria.sqlite`, por namespace `("clientes", id)` |
+| Para qué | Pausar en revisión humana y reanudar, incluso tras reiniciar | Que el agente sepa qué pidió antes el cliente |
+| Código | `api/persistencia.abrir_checkpointer` | `soporte/memoria.py`, nodos `consultar_historial` y `recordar` |
+
+Un correo nuevo es un hilo nuevo, así que su memoria de corto plazo empieza vacía; lo que debe sobrevivir va al
+Store. Qué se recuerda (memoria **semántica**, hechos sobre el cliente):
+
+- **Piezas consultadas**, con cuántas veces.
+- **Preferencias**, como "suele pedir sensores con salida PNP". Un solo correo no dice "siempre": la preferencia
+  aparece solo cuando varias consultas coinciden, y la concluye el código desde las especificaciones, no el LLM.
+
+Cuándo se escribe: en el nodo `recordar`, **después de enviar** (directo o aprobado). Una respuesta rechazada
+termina antes y no deja recuerdos: no se guarda lo que nadie confirmó. Como corre después de enviar, no retrasa
+la respuesta; en producción podría ser un proceso aparte, en segundo plano.
+
+El id del cliente es el dominio de su correo con `_` en vez de puntos (`empacadoraelvalle_com`): los namespaces
+del Store no aceptan puntos, y así la llave no guarda el correo de una persona. LangSmith no es memoria: ahí ves las
+trazas tú, pero el agente no las lee.
+
 ## El grafo
 
 ```mermaid
@@ -178,7 +202,7 @@ graph TD
     verificar_respuesta -.-> enviar_respuesta
     revision_humana -.-> enviar_respuesta
     revision_humana -.-> END([END])
-    enviar_respuesta --> END
+    enviar_respuesta --> recordar --> END
 ```
 
 Las líneas punteadas son rutas condicionales.
@@ -197,7 +221,8 @@ Las líneas punteadas son rutas condicionales.
 | Arista condicional con varias ramas en paralelo | `nodos.rutas_tras_clasificar` + `agente/flujo.py` |
 | `Command` (actualizar estado y enrutar a la vez) | `nodos.verificar_respuesta`, `nodos.revision_humana` |
 | Human in the loop con `interrupt()` | `nodos.revision_humana` |
-| Checkpointer (SQLite) y `thread_id` | `api/persistencia.py`, `tests/test_api.py` |
+| Memoria de corto plazo: checkpointer (SQLite) y `thread_id` | `api/persistencia.py`, `tests/test_api.py` |
+| Memoria de largo plazo: Store, namespaces, `Runtime` en un nodo | `soporte/memoria.py`, `nodos.recordar`, `tests/test_memoria.py` |
 | Errores guardados en el estado, sin tumbar el grafo | `nodos.buscar_documentacion` |
 | Evals: código + LLM juez estrecho y binario | `evals/run_evals.py` |
 
@@ -207,6 +232,7 @@ Las líneas punteadas son rutas condicionales.
 src/soporte/
 ├── config.py              modelos y rutas, desde variables de entorno
 ├── servicios.py           sistemas externos simulados: CRM, tickets, envío de correo
+├── memoria.py             memoria de largo plazo por cliente (Store de LangGraph)
 ├── agente/                el agente: qué pasos da y en qué orden
 │   ├── estado.py          el estado compartido (el contrato entre nodos) y los esquemas Pydantic
 │   ├── flujo.py           el grafo de LangGraph: nodos y aristas (flujo de control)
@@ -279,7 +305,7 @@ python evals/run_evals.py          # crea el dataset en LangSmith y corre el exp
 | POST | `/api/corridas/{id}/decision` | Reanuda una corrida pausada con `aprobar`, `editar` o `rechazar` |
 | GET | `/api/corridas/{id}` | Estado actual de una corrida |
 
-Los checkpoints del grafo se guardan en `data/checkpoints.sqlite`: si cierras el servidor con una corrida
+Los checkpoints del grafo se guardan en `data/checkpoints.sqlite` (y la memoria de largo plazo en `data/memoria.sqlite`): si cierras el servidor con una corrida
 esperando revisión, al volver a abrirlo (y recargar la página) puedes aprobarla. Con `CHECKPOINTS=memoria`
 en `.env` se guardan en memoria.
 
@@ -336,7 +362,13 @@ En PRs apilados; cada uno parte del anterior y deja los tests en verde:
     (CSV) y el PDF de stock diario, con validación, transacciones y consultas con parámetros.
 15. `pr/15-grafo-de-equivalencias`: un grafo de conocimiento en JSON con sustitutos, accesorios y fuentes; las
     equivalencias se calculan con una regla desde las especificaciones, y un nodo nuevo lo recorre en paralelo.
+16. `pr/16-memoria-de-largo-plazo`: un Store de LangGraph recuerda por cliente las piezas que pidió y concluye
+    preferencias; se escribe solo después de enviar y se lee junto con el historial.
 ## Siguientes pasos
 
+- Medir el verificador con un dataset de borradores con errores sembrados (precio cambiado, dato de otra pieza).
+- Pasar el grafo de equivalencias a Neo4j si el catálogo crece a miles de piezas.
+- Escribir la memoria de largo plazo en un proceso aparte, en segundo plano, que mire varios correos a la vez.
+- Postgres para checkpoints, Store e inventario (con `pgvector`, también los embeddings) si hay varios servidores.
 - Reintento de la búsqueda cuando falla, con una arista de vuelta a `buscar_documentacion`.
 - Evals online y automatizaciones en LangSmith sobre tráfico real.

@@ -76,6 +76,8 @@ def resumen_del_estado(valores: dict[str, Any], siguientes: tuple[str, ...]) -> 
         "verificacion": valores.get("verificacion"),
         "motivos_revision": valores.get("motivos_revision", []),
         "historial_cliente": valores.get("historial_cliente"),
+        "memoria_cliente": valores.get("memoria_cliente") or {},
+        "memoria_actualizada": valores.get("memoria_actualizada") or {},
         "ticket_id": valores.get("ticket_id"),
         "borrador": valores.get("borrador"),
         "decision_humana": valores.get("decision_humana"),

@@ -14,13 +14,14 @@ export const NOMBRES = {
   verificar_respuesta: "Verificar contra el catálogo",
   revision_humana: "Revisión humana",
   enviar_respuesta: "Enviar respuesta",
+  recordar: "Recordar (memoria de largo plazo)",
 };
 
 const NOMBRES_CORTOS = {
-  buscar_documentacion: "Vectorial",
+  buscar_documentacion: "Vector",
   busqueda_exacta: "Exacta",
   consultar_grafo: "Grafo",
-  consultar_historial: "Historial",
+  consultar_historial: "Cliente",
   crear_ticket: "Caso",
 };
 
@@ -34,6 +35,7 @@ export const FILAS = [
   ["verificar_respuesta"],
   ["revision_humana"],
   ["enviar_respuesta"],
+  ["recordar"],
 ];
 
 export const nombreDeNodo = (nodo) => NOMBRES[nodo] ?? nodo;

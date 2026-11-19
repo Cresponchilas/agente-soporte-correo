@@ -20,7 +20,7 @@ from soporte.api.ajustes import Ajustes
 from soporte.api.corridas import configuracion, esta_pausada_en_revision, transmitir
 from soporte.api.esquemas import CasoDePrueba, CorreoEntrante, DecisionHumana, Salud
 from soporte.api.eventos import resumen_del_estado
-from soporte.api.persistencia import abrir_checkpointer
+from soporte.api.persistencia import abrir_checkpointer, abrir_store
 from soporte.agente.flujo import construir_grafo
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -39,8 +39,11 @@ def crear_app(ajustes: Ajustes | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def ciclo_de_vida(app: FastAPI):
-        async with abrir_checkpointer(ajustes.archivo_checkpoints) as (checkpointer, tipo):
-            app.state.grafo = construir_grafo(checkpointer)
+        async with (
+            abrir_checkpointer(ajustes.archivo_checkpoints) as (checkpointer, tipo),
+            abrir_store(ajustes.archivo_checkpoints) as store,
+        ):
+            app.state.grafo = construir_grafo(checkpointer, store)
             app.state.persistencia = tipo
             yield
 
