@@ -18,7 +18,7 @@ from typing_extensions import NotRequired, TypedDict
 from soporte.agente.estado import Fragmento
 from soporte.conocimiento.busqueda import buscar_en, extraer_codigos, extraer_datos
 
-EstadoAfirmacion = Literal["respaldado", "fuera_de_contexto", "no_encontrado"]
+EstadoAfirmacion = Literal["respaldado", "fuera_de_contexto", "del_correo", "no_encontrado"]
 
 
 class Afirmacion(TypedDict):
@@ -60,21 +60,36 @@ class Verificacion(TypedDict):
     motivos: list[str]  # por qué no se aprueba; vacío si se aprueba
 
 
-def comprobar_literal(borrador: str, vistos: list[Fragmento], catalogo: list[Fragmento]) -> list[Afirmacion]:
+def comprobar_literal(
+    borrador: str, vistos: list[Fragmento], catalogo: list[Fragmento], correo: str = ""
+) -> list[Afirmacion]:
     """El piso: cada número de pieza y dato del borrador, buscado tal cual.
 
     - respaldado: aparece en lo que vio el modelo (`vistos`).
-    - fuera_de_contexto: no estaba en lo que vio, pero sí existe en el catálogo
-      (es real, aunque el modelo no tenía cómo saberlo: se informa, no se bloquea).
-    - no_encontrado: no aparece en ninguna parte del catálogo: posible invento.
+    - fuera_de_contexto: no estaba en lo que vio, pero sí existe en el catálogo o el
+      inventario (es real, aunque el modelo no lo vio: se informa, no se bloquea).
+    - del_correo: un dato que no está en las fuentes pero lo escribió el cliente, como
+      "necesito 4 unidades". Repetirlo no es inventar; se informa, no se bloquea. Si
+      el cliente cita un dato falso, lo detecta el verificador agente, no este piso.
+    - no_encontrado: no aparece en ninguna parte: posible invento.
     """
     candidatos = [(c, "codigo") for c in extraer_codigos(borrador)] + [(d, "dato") for d in extraer_datos(borrador)]
+    correo_como_fuente = [Fragmento(fuente="correo del cliente", texto=correo)]
     afirmaciones: list[Afirmacion] = []
     for texto, tipo in candidatos:
         en_vistos = buscar_en(vistos, texto)
         en_catalogo = en_vistos or buscar_en(catalogo, texto)
-        estado: EstadoAfirmacion = "respaldado" if en_vistos else "fuera_de_contexto" if en_catalogo else "no_encontrado"
-        afirmaciones.append(Afirmacion(texto=texto, tipo=tipo, estado=estado, fuente=en_catalogo[0] if en_catalogo else None))
+        en_correo = tipo == "dato" and not en_catalogo and buscar_en(correo_como_fuente, texto)
+        if en_vistos:
+            estado: EstadoAfirmacion = "respaldado"
+        elif en_catalogo:
+            estado = "fuera_de_contexto"
+        elif en_correo:
+            estado = "del_correo"
+        else:
+            estado = "no_encontrado"
+        fuente = en_catalogo[0] if en_catalogo else "correo del cliente" if en_correo else None
+        afirmaciones.append(Afirmacion(texto=texto, tipo=tipo, estado=estado, fuente=fuente))
     return afirmaciones
 
 

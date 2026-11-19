@@ -11,3 +11,6 @@ dist/
 
 # Checkpoints locales del grafo
 data/checkpoints.sqlite*
+
+# La base de inventario se genera desde data/inventario/ (python -m soporte.datos.inventario)
+data/inventario.sqlite*

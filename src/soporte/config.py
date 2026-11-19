@@ -18,6 +18,8 @@ load_dotenv()
 RAIZ = Path(__file__).resolve().parents[2]
 CARPETA_KB = RAIZ / "data" / "kb"
 ARCHIVO_CLIENTES = RAIZ / "data" / "clientes.json"
+CARPETA_INVENTARIO = RAIZ / "data" / "inventario"  # lo que manda el cliente: precios (CSV) y stock (PDF)
+ARCHIVO_INVENTARIO = Path(os.getenv("INVENTARIO", RAIZ / "data" / "inventario.sqlite"))  # la base que se genera
 
 MODELO_CHAT = os.getenv("MODELO_CHAT", "openai:gpt-4.1-mini")
 MODELO_EMBEDDINGS = os.getenv("MODELO_EMBEDDINGS", "openai:text-embedding-3-small")

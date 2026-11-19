@@ -180,3 +180,23 @@ def test_si_el_verificador_falla_va_a_revision(grafo, clasificacion_falsa, monke
     assert "__interrupt__" in resultado  # falla de forma segura: no se envía sin verificar
     assert resultado["verificacion"]["error"] == "el modelo no respondió"
     assert len(servicios.BANDEJA_DE_SALIDA) == 0
+
+
+def test_inventario_corre_una_vez_y_entrega_precio_y_stock(grafo, clasificacion_falsa):
+    clasificacion_falsa(intencion="cotizacion", urgencia="baja")
+    resultado = grafo.invoke({**CORREO, "cuerpo": "Precio y stock del SI-M18-08P, por favor."}, config())
+
+    assert resultado["pasos"].count("consultar_inventario") == 1  # después de todas las ramas, una vez
+    inventario = {f["fuente"]: f for f in resultado["contexto"] if f["origen"] == "inventario"}
+    assert "Precio: USD 46" in inventario["inventario#SI-M18-08P"]["texto"]
+
+
+def test_un_precio_inventado_lo_frena_el_piso(grafo, clasificacion_falsa, monkeypatch):
+    from soporte.agente import llm
+
+    clasificacion_falsa(intencion="cotizacion", urgencia="baja")
+    monkeypatch.setattr(llm, "redactar_con_llm", lambda prompt: "El SI-M18-08P cuesta USD 41 y hay 8 unidades en Medellín.")
+    resultado = grafo.invoke(CORREO, config())
+
+    assert "__interrupt__" in resultado  # el inventario dice USD 46
+    assert "USD 41" in " ".join(resultado["__interrupt__"][0].value["motivos"])

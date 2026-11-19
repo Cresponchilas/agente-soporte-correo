@@ -59,6 +59,15 @@ def revision_falsa(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def inventario_temporal(tmp_path, monkeypatch):
+    """Cada test usa su propia base de inventario, construida desde data/inventario/.
+    Así ningún test toca la base real ni depende de lo que hizo otro."""
+    from soporte import config
+
+    monkeypatch.setattr(config, "ARCHIVO_INVENTARIO", tmp_path / "inventario.sqlite")
+
+
+@pytest.fixture(autouse=True)
 def sin_llamadas_reales(monkeypatch):
     monkeypatch.setattr(llm, "redactar_con_llm", lambda prompt: "Hola, este es un borrador de prueba.")
     # Por defecto el verificador agente no encuentra nada que comprobar.

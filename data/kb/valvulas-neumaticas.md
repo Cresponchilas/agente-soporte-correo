@@ -11,15 +11,11 @@ La serie VN-52 no se fabrica con rosca 3/8" ni con bobina de 220 VAC.
 ## VN-52-18-24D
 Válvula 5/2 monoestable, rosca 1/8", bobina 24 VDC.
 - Presión de trabajo: 1,5 a 8 bar
-- Precio: USD 49
-- Disponibilidad: en stock en Medellín
 
 ## VN-52-14-24D
 Válvula 5/2 monoestable, rosca 1/4", bobina 24 VDC.
 - Presión de trabajo: 1,5 a 8 bar
-- Precio: USD 54
-- Disponibilidad: en stock en Medellín
 
 ## VN-52-18-110A y VN-52-14-110A
-Las versiones con bobina de 110 VAC cuestan USD 6 más que la versión de 24 VDC equivalente: USD 55 la VN-52-18-110A y USD 60 la VN-52-14-110A.
-- Disponibilidad: a pedido, entrega en 7 días hábiles
+Válvulas 5/2 monoestables con bobina de 110 VAC: rosca 1/8" (VN-52-18-110A) o rosca 1/4" (VN-52-14-110A).
+- Presión de trabajo: 1,5 a 8 bar
